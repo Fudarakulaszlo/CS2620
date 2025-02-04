@@ -1,1 +1,1 @@
-# Homework assignments for CS2620
+# Homework 1 - CS2620
