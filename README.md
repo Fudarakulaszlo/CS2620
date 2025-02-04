@@ -1,1 +1,1 @@
-# CS1820
+# Homework assignments for CS2620
