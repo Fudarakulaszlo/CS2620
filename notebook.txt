@@ -1,1 +1,11 @@
+Engineering notebook for the wire protocol
 
+Set up socket as seen in class
+
+Wire protocol should have one byte as command and then the message
+
+Store password hashed with SHA256
+
+Created GUI with tkinter
+
+Registration from GUI does not work, returns error
