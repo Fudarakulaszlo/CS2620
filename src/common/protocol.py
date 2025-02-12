@@ -125,3 +125,7 @@ def validate_length(input_str, max_length, field_name):
         print(f"❌ {field_name} exceeds maximum length of {max_length} characters.")
         return False
     return True
+
+# Verify a hashed password
+def verify_password(stored_password, entered_password): 
+    return stored_password == hash_password_sha256(entered_password)

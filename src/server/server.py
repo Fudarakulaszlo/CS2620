@@ -94,16 +94,15 @@ def handle_client(client_socket, client_address, users):
                 print(f"📝 Registering user: {username}")
                 handle_reg(client_socket, users, username, password)
             elif cmd == REQ_SAV.strip('\x00'):
+                print("💾 Saving server data...")
                 handle_sav(client_socket, users)
             elif cmd == REQ_LOG.strip('\x00'):
                 username, password = payload.split("|")
                 print(f"🔑 Logging in user: {username}")
-                username = handle_log(client_socket, users, username, password)
-                if not username:
-                    client_socket.sendall(create_packet(RES_ERR_LOGIN, "❌ Login failed."))
-                    return  
+                login_success = handle_log(client_socket, users, username, password)
+                print(f"Login response: {login_success}")
                 # Continue handling commands after successful login
-                while True:
+                if login_success == True:
                     request = client_socket.recv(BUFFER_SIZE)
                     cmd, payload, status = parse_packet(request)
 
@@ -127,10 +126,14 @@ def handle_client(client_socket, client_address, users):
                         handle_all(client_socket, users, username, password)
                     else:
                         client_socket.sendall(create_packet(RES_ERR_INV_CMD, "❌ Invalid command."))
+                else:
+                    continue
     except Exception as e:   
         print(f"❌ Error handling {client_address}: {e}")
-    finally:
+    finally: 
+        print(f"🔻 Client {client_address} disconnected")
         client_socket.close()  # Close the client socket
+
 
 # Start the server and accept client connections
 def start_server(args): 

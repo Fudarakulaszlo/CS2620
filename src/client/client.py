@@ -33,14 +33,6 @@ def connect_to_server():
         print(f"❌ Error: {e}")
         sys.exit(1)
 
-# Disconnect from the server
-def disconnect_from_server(client_socket): 
-    try:
-        client_socket.close()
-        print("🚫 Disconnected from server.")
-    except Exception as e:
-        print(f"❌ Error disconnecting from server: {e}")
-
 # Authenticate user (login/register)
 def authenticate(client_socket): 
     while True:
@@ -49,9 +41,9 @@ def authenticate(client_socket):
             continue
 
         # Check if username exists
-        response = request_check_user_exists(client_socket, username)
-
-        if response[0] == RES_OK.strip('\x00'):
+        user_exists_response = request_check_user_exists(client_socket, username)
+        # Username exists
+        if  user_exists_response[0] == RES_OK.strip('\x00'): 
             print("🔹 Username found. Proceeding to login...")
             while True:
                 # Username exists, ask for password
@@ -59,14 +51,15 @@ def authenticate(client_socket):
                 password = input("🔑 Enter your password: ").strip()
                 if not validate_length(password, LEN_PASSWORD, "Password"):
                     continue
-                response = request_login(client_socket, username, password)
+                print(username, password)
+                login_response = request_login(client_socket, username, password)
 
-                if response[0] == RES_OK.strip('\x00'):
+                if login_response[0] == RES_OK.strip('\x00'):
                     print(f"🎉 Welcome, {username}!")
                     return username
                 else:
                     print("❌ Invalid password. Try again.")
-
+        # Username does not exist
         else:
             print("🔹 Username NOT found. Registering a new account...")
             while True:
@@ -77,11 +70,11 @@ def authenticate(client_socket):
                 password = input("🔑 Enter your password: ").strip()
                 if not validate_length(password, LEN_PASSWORD, "Password"):
                     continue
-                response = request_register(client_socket, new_username, password)
+                register_response = request_register(client_socket, new_username, password)
 
-                if response[0] == RES_OK.strip('\x00'):
-                    response = request_save_users(client_socket, username, password)
-                    if response[0] == RES_OK.strip('\x00'):
+                if register_response[0] == RES_OK.strip('\x00'):
+                    save_response = request_save_users(client_socket, username, password)
+                    if save_response[0] == RES_OK.strip('\x00'):
                         print(f"🎉 New account created for {new_username}! Please log in.")
                         username = new_username  # Set new username for login
                         break  # Proceed to login
@@ -99,8 +92,8 @@ if __name__ == "__main__":
 
     # Main loop
     while True:
-        print("\n📝 Menu:")
+        print("\n📝 Menu: \n1. Send a message \n2. View messages \n3. Logout")
+        choice = input("Enter your choice (1, 2, 3): ")
+        if choice == "3":
+            request_logout(client_socket, username)
         break
-
-    # Disconnect from server
-    disconnect_from_server(client_socket)
