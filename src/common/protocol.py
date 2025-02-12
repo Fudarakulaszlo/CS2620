@@ -23,6 +23,7 @@ REQ_SAV = "PERSIST_"   # Force server to save data
 REQ_CPW = "CHANGEPW"   # Change password
 REQ_SET = "SETPFILE"   # Set user profile file
 REQ_GET = "GETPFILE"   # Get a user’s profile
+REQ_UPA = "UPDATE__"   # Update user profile
 REQ_ALL = "ALLUSERS"   # Get all registered users
 
 # Response Codes (Sent by Server)
@@ -75,9 +76,7 @@ def create_packet(command, payload):
     return packet
 
 # Parse a received packet
-def parse_packet(packet): 
-    print(f"📩 Received Raw Packet: {packet}")  # Debugging print
-
+def parse_packet(packet):
     if len(packet) < HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + 1:
         print(f"❌ Packet too short: Expected at least {HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + 1} bytes, got {len(packet)}")
         return None, None, "Invalid packet length"

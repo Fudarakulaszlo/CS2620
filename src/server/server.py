@@ -105,6 +105,12 @@ def handle_client(client_socket, client_address, users):
             elif cmd == REQ_GET.strip('\x00'):
                 username = payload
                 handle_get(client_socket, users, username,)
+            elif cmd == REQ_UPA.strip('\x00'):
+                username = payload
+                handle_update(client_socket, users, username)
+            elif cmd == REQ_ALL.strip('\x00'):
+                password = payload
+                handle_all(client_socket, users, username)
             elif cmd == REQ_LOG.strip('\x00'):
                 print("Inside Login")
                 username, password = payload.split("|")

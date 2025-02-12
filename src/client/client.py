@@ -91,22 +91,44 @@ if __name__ == "__main__":
 
     # Main loop
     while True:
-        print("\n📝 Menu: \n1. Send a message \n2. View messages \n3. Logout")
-        choice = input("Enter your choice (1, 2, 3): ")
+        get_profile_response = request_get_profile(client_socket, username)
+        messages = get_profile_response[1].strip().split('\n')
+        formatted_messages, unread_messages = [], []
+        for message in messages:
+            status, content, sender = message.split(',')
+            formatted_message = f"[{status.capitalize()}] {sender}: {content}"
+            if status.upper() == "UNREAD": unread_messages.append(formatted_message)
+        print(f"\n📮 Unread messages count: {len(unread_messages)}")
+        print("🌐 Menu: \n1. 📤 Send a message \n2. 📨 View messages \n3. 👋 Logout")
+        choice = input("📝 Enter your choice (1, 2, 3): ")
+        if choice not in ["1", "2", "3"]:
+            print("❌ Invalid choice. Please try again.")
+            continue
         if choice == "3":
             request_logout(client_socket, username)
         else:
-            request_get_profile(client_socket, username)
             if choice == "1":
-                target_user = input("Enter the recipient's username: ")
-                        # Check if username exists
+                get_users_response = request_list_users(client_socket, username)
+                users = get_users_response[1].strip().split('\n')
+                for u in users:
+                    print(f"👤 {u}")
+                target_user  = input("👥 Enter the recipient's username: ").strip()
+                # Check if username exists
                 user_exists_response = request_check_user_exists(client_socket, target_user)
                 while user_exists_response[0] != RES_OK.strip('\x00'):
                     print("❌ User not found. Try again.")
-                    target_user = input("Enter the recipient's username: ")
+                    target_user = input("👥 Enter the recipient's username: ")
                     user_exists_response = request_check_user_exists(client_socket, target_user)
                 # Username exists
                 request_get_profile(client_socket, target_user)
-                message = input("Enter your message: ")
+                message = input("🖌  Enter your message: ")
                 request_set_profile(client_socket, username, message, target_user)
+                print("📬 Message sent!")
+                continue
+            else:
+                for unread in unread_messages:
+                    print(f"💬 {unread}")
+                request_update_profile(client_socket, username)
+                print("📭 All messages viewed!")
+                continue
         break

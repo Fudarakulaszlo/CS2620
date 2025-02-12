@@ -30,11 +30,12 @@ def handle_check_user_exists(client_socket, users, username):
         send_response(client_socket, RES_ERR_NO_USER, "❌ Username not found.")
 
 # Handle `REQ_ALL` – Get all registered usernames
-def handle_all(client_socket, users, username, password): 
-    if username not in users or not verify_password(users[username], password):
+def handle_all(client_socket, users, username):
+    if username not in users:
         send_response(client_socket, RES_ERR_LOGIN, "❌ Authentication failed.")
         return
     user_list = "\n".join(users.keys())
+    print(user_list)
     send_response(client_socket, RES_OK, user_list)
 
 # Handle `REQ_CPW` – Change user password
@@ -45,7 +46,7 @@ def handle_cpw(client_socket, users, username, old_password, new_password):
     users[username] = hash_password_sha256(new_password)
     send_response(client_socket, RES_OK, "✅ Password changed successfully.")
 
-# Handle `REQ_SET` – Save user  data
+# Handle `REQ_SET` – Save user data
 def handle_set(client_socket, users, username, message, target_user):
     if username not in users or target_user not in users:
         send_response(client_socket, RES_ERR_LOGIN, "❌ Authentication failed.")
@@ -63,6 +64,22 @@ def handle_set(client_socket, users, username, message, target_user):
         f.write(f"UNREAD, {message}, {username}\n")
     
     send_response(client_socket, RES_OK, "✅ Message updated successfully.")
+
+# Handle `REQ_UPA` – Update user data
+def handle_update(client_socket, users, username):
+    if username not in users:
+        send_response(client_socket, RES_ERR_LOGIN, "❌ Authentication failed.")
+        return
+    
+    user_message_file = os.path.join(MESSAGES_DIR, f"{username}.dat")
+
+    with open(user_message_file, "r") as f:
+        lines = f.readlines()
+    
+    with open(user_message_file, "w") as f:
+        for line in lines:
+            f.write(line.replace("UNREAD", "READ"))
+    send_response(client_socket, RES_OK, "✅ User data updated successfully.")
     
 # Handle `REQ_GET` – Retrieve user  data
 def handle_get(client_socket, users, username): 

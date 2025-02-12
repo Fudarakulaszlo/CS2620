@@ -1,5 +1,25 @@
 # Homework 1 - CS2620
 
+## Project Directory Structure
+
+```
+src/
+  ├── client/
+  │       ├── client.py
+  │       └── request.py
+  ├── server/
+  │       ├── server.py
+  │       └── response.py
+  ├── common/
+  │       ├── protocols.py
+  │       └── messages/
+  └── GUI/ 
+        └── gui.py
+
+
+
+```
+
 ## Testing the Code
 To test the code, be sure to be in the right directory:
 ```

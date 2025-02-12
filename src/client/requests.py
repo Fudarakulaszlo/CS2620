@@ -50,13 +50,16 @@ def request_set_profile(client_socket, username, message, target_user):
 
 # Request to get a user's profile data
 def request_get_profile(client_socket, username): 
-    response_cmd, response_payload, status = send_request(client_socket, REQ_GET, f"{username}")
+    response_cmd, response_payload, status = send_request(client_socket, REQ_GET, username)
+    return response_cmd, response_payload, status
+
+def request_update_profile(client_socket, username):
+    response_cmd, response_payload, status = send_request(client_socket, REQ_UPA, username)
     return response_cmd, response_payload, status
 
 # Request to list all users
-def request_list_users(client_socket, username, password): 
-    hashed_password = hash_password_sha256(password)
-    response_cmd, response_payload, status = send_request(client_socket, REQ_ALL, f"{username}|{hashed_password}")
+def request_list_users(client_socket, username): 
+    response_cmd, response_payload, status = send_request(client_socket, REQ_ALL, username)
     return response_cmd, response_payload, status
 
 # Request to log out
