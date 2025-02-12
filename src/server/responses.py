@@ -20,12 +20,10 @@ def verify_password(stored_password, entered_password):
 
 # Handle `REQ_CHE` – Check if username exists
 def handle_check_user_exists(client_socket, users, username):
-    """Checks if a username exists in the user database."""
     if username in users:
         response = create_packet(RES_OK, "✅ Username exists. Proceed to login.")
     else:
         response = create_packet(RES_ERR_NO_USER, "❌ Username not found. Proceed to registration.")
-    
     client_socket.sendall(response)
 
 # Handle `REQ_ALL` – Get all registered usernames
@@ -34,7 +32,6 @@ def handle_all(client_socket, users, username, password):
         response = create_packet(RES_ERR_LOGIN, "❌ Authentication failed.")
         client_socket.sendall(response)
         return
-
     user_list = "\n".join(users.keys())
     response = create_packet(RES_OK, user_list)
     client_socket.sendall(response)
@@ -56,11 +53,9 @@ def handle_set(client_socket, users, username, password, profile_data):
         response = create_packet(RES_ERR_LOGIN, "❌ Authentication failed.")
         client_socket.sendall(response)
         return
-
     # Save profile data to a file
     with open(f"{username}.profile", "w") as f:
         f.write(profile_data)
-
     response = create_packet(RES_OK, "✅ Profile updated successfully.")
     client_socket.sendall(response)
 
@@ -70,7 +65,6 @@ def handle_get(client_socket, users, username, password, target_username):
         response = create_packet(RES_ERR_LOGIN, "❌ Authentication failed.")
         client_socket.sendall(response)
         return
-    
     try:
         with open(f"{target_username}.profile", "r") as f:
             profile_data = f.read()
@@ -88,7 +82,6 @@ def handle_reg(client_socket, users, username, password):
         response = create_packet(RES_ERR_USER_EXISTS, "❌ Username already exists.")
         client_socket.sendall(response)
         return
-    
     users[username] = hash_password_sha256(password)
     response = create_packet(RES_OK, "✅ Registration successful.")
     client_socket.sendall(response)
@@ -114,6 +107,5 @@ def handle_bye(client_socket, username):
 def handle_sav(client_socket, users): 
     with open("users.dat", "w") as f:
         json.dump(users, f)
-
     response = create_packet(RES_OK, "✅ User data saved successfully.")
     client_socket.sendall(response)

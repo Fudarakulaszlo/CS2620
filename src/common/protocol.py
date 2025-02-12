@@ -9,8 +9,8 @@ import struct
 import hashlib
 
 # Constants
-LEN_UNAME = 64                               # Max username length
-LEN_PASSWORD = 64                            # Max password length
+LEN_UNAME = 32                               # Max username length
+LEN_PASSWORD = 32                            # Max password length
 LEN_PASSHASH = hashlib.sha256().digest_size  # 32 bytes (SHA-256 hash)
 LEN_PROFILE_FILE = 1048576                   # 1MB max profile size
 
@@ -100,7 +100,7 @@ def parse_packet(packet):
         print("❌ Failed to unpack payload length.")
         return None, None, "Invalid payload length"
 
-    print(f"🛠  Parsed Command: {command}, Payload Length: {payload_len}")  # Debugging print
+    # print(f"🛠  Parsed Command: {command}, Payload Length: {payload_len}")  # Debugging print
 
     if len(packet) < HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len + 1:
         print(f"❌ Truncated packet: Expected {HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len + 1}, got {len(packet)}")
@@ -114,4 +114,14 @@ def parse_packet(packet):
         print("❌ Checksum mismatch.")
         return None, None, "Checksum mismatch"
 
-    return command.decode(), payload.decode(), "OK"
+    return command.decode(), payload.decode(), RES_OK
+
+# Validate the length of a string
+def validate_length(input_str, max_length, field_name):
+    if not input_str:
+        print(f"❌ {field_name} cannot be empty.")
+        return False
+    if len(input_str) > max_length:
+        print(f"❌ {field_name} exceeds maximum length of {max_length} characters.")
+        return False
+    return True

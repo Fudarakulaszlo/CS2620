@@ -42,17 +42,12 @@ def parse_args():
     if args.p: server_args.port = args.p
     return server_args
 
-# Save users back to the file
-def save_users(users): 
-    with open(USER_FILE, "w") as f:
-        json.dump(users, f)
-
 # Load stored usernames & passwords
 def load_users():
     if not os.path.exists(USER_FILE):
         print("❗ No user file found. Creating `users.dat` with a default user...")
         users = {"kakali121": hash_password_sha256("Yunlei1207~")}
-        save_users(users)
+        with open(USER_FILE, "w") as f: json.dump(users, f)
     else:
         try:
             with open(USER_FILE, "r") as f:
@@ -60,7 +55,7 @@ def load_users():
         except json.JSONDecodeError:
             print("❗ Error reading user file, resetting it.")
             users = {"kakali121": hash_password_sha256("Yunlei1207~")}
-            save_users(users)
+            with open(USER_FILE, "w") as f: json.dump(users, f)
     return users
 
 # Verify a hashed password
@@ -80,11 +75,12 @@ def handle_client(client_socket, client_address, users):
             if not request:
                 print(f"🚫 Client {client_address} disconnected.")
                 break
-            
+
+            # Parse request
             cmd, payload, status = parse_packet(request)
             print(f"📩 Parsed Command: {cmd}, Payload: {payload}, Status: {status}")
 
-            if status != "OK":
+            if status != RES_OK.strip('\x00'):
                 print("❌ Error parsing packet. Sending error response.")
                 client_socket.sendall(create_packet(RES_ERR_REQ_FMT, "Invalid request format."))
                 continue
@@ -97,6 +93,8 @@ def handle_client(client_socket, client_address, users):
                 username, password = payload.split("|")
                 print(f"📝 Registering user: {username}")
                 handle_reg(client_socket, users, username, password)
+            elif cmd == REQ_SAV.strip('\x00'):
+                handle_sav(client_socket, users)
             elif cmd == REQ_LOG.strip('\x00'):
                 username, password = payload.split("|")
                 print(f"🔑 Logging in user: {username}")
@@ -109,7 +107,7 @@ def handle_client(client_socket, client_address, users):
                     request = client_socket.recv(BUFFER_SIZE)
                     cmd, payload, status = parse_packet(request)
 
-                    if status != "OK":
+                    if status != RES_OK.strip('\x00'):
                         client_socket.sendall(create_packet(RES_ERR_REQ_FMT, "Invalid request format."))
                         continue
                     if cmd == REQ_BYE.strip('\x00'):
@@ -127,8 +125,6 @@ def handle_client(client_socket, client_address, users):
                     elif cmd == REQ_ALL.strip('\x00'):
                         password = payload
                         handle_all(client_socket, users, username, password)
-                    elif cmd == REQ_SAV.strip('\x00'):
-                        handle_sav(client_socket, users)
                     else:
                         client_socket.sendall(create_packet(RES_ERR_INV_CMD, "❌ Invalid command."))
     except Exception as e:   
@@ -139,7 +135,7 @@ def handle_client(client_socket, client_address, users):
 # Start the server and accept client connections
 def start_server(args): 
     users = load_users()
-    print("🔐 User database loaded.")
+    print(f"🔐 User database loaded. {len(users)} users found.")
 
     # Create server socket
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

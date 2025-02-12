@@ -44,36 +44,51 @@ def disconnect_from_server(client_socket):
 # Authenticate user (login/register)
 def authenticate(client_socket): 
     while True:
-        username = input(">  Enter your username: ").strip()
+        username = input("👤 Enter your username: ").strip()
+        if not validate_length(username, LEN_UNAME, "Username"):
+            continue
 
         # Check if username exists
-        response = send_request(client_socket, REQ_CHE, username) 
+        response = request_check_user_exists(client_socket, username)
 
-        if "Username exists" in response:
-            # Username exists, ask for password
-            password = getpass.getpass("Enter your password: ").strip()
-            response = request_login(client_socket, username, password)
-
-            if "Login successful" in response:
-                print(f"🎉 Welcome, {username}!")
-                return username
-            else:
-                print("❌ Invalid password. Try again.")
-
-        elif "Username not found" in response:
-            # Username does not exist, prompt to register
-            print("🔹 Username not found. Registering a new account...")
+        if response[0] == RES_OK.strip('\x00'):
+            print("🔹 Username found. Proceeding to login...")
             while True:
-                new_username = input("Enter a unique username: ").strip()
-                password = getpass.getpass("Enter a new password: ").strip()
+                # Username exists, ask for password
+                # password = getpass.getpass("🔑 Enter your password: ").strip()
+                password = input("🔑 Enter your password: ").strip()
+                if not validate_length(password, LEN_PASSWORD, "Password"):
+                    continue
+                response = request_login(client_socket, username, password)
+
+                if response[0] == RES_OK.strip('\x00'):
+                    print(f"🎉 Welcome, {username}!")
+                    return username
+                else:
+                    print("❌ Invalid password. Try again.")
+
+        else:
+            print("🔹 Username NOT found. Registering a new account...")
+            while True:
+                new_username = input("👤 Enter a unique username: ").strip()
+                if not validate_length(new_username, LEN_UNAME, "Username"):
+                    continue
+                # password = getpass.getpass("🔑 Enter a new password: ").strip()
+                password = input("🔑 Enter your password: ").strip()
+                if not validate_length(password, LEN_PASSWORD, "Password"):
+                    continue
                 response = request_register(client_socket, new_username, password)
 
-                if "Username already taken" in response:
-                    print("❌ Username already taken. Try another.")
+                if response[0] == RES_OK.strip('\x00'):
+                    response = request_save_users(client_socket, username, password)
+                    if response[0] == RES_OK.strip('\x00'):
+                        print(f"🎉 New account created for {new_username}! Please log in.")
+                        username = new_username  # Set new username for login
+                        break  # Proceed to login
+                    else:
+                        print("❌ Error saving user data. Please try again.")
                 else:
-                    print("✅ Registration successful. Please log in.")
-                    username = new_username  # Set new username for login
-                    break  # Proceed to login
+                    print("❌ Username already taken. Try another.")
 
 if __name__ == "__main__":
     # Connect to server
@@ -81,6 +96,11 @@ if __name__ == "__main__":
 
     # Authenticate user (login or register)
     username = authenticate(client_socket)
+
+    # Main loop
+    while True:
+        print("\n📝 Menu:")
+        break
 
     # Disconnect from server
     disconnect_from_server(client_socket)
