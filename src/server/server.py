@@ -85,6 +85,9 @@ def handle_client(client_socket, client_address, users):
                 client_socket.sendall(create_packet(RES_ERR_REQ_FMT, "Invalid request format."))
                 continue
             
+            if cmd == REQ_BYE.strip('\x00'):
+                handle_bye(client_socket, username)
+                break
             # Handle authentication commands
             if cmd == REQ_CHE.strip('\x00'):  
                 print(f"🔍 Checking if user exists: {payload}")
@@ -96,37 +99,35 @@ def handle_client(client_socket, client_address, users):
             elif cmd == REQ_SAV.strip('\x00'):
                 print("💾 Saving server data...")
                 handle_sav(client_socket, users)
+            elif cmd == REQ_SET.strip('\x00'):
+                username, message, target_user = payload.split("|")
+                handle_set(client_socket, users, username, message, target_user)
+            elif cmd == REQ_GET.strip('\x00'):
+                username = payload
+                handle_get(client_socket, users, username,)
             elif cmd == REQ_LOG.strip('\x00'):
+                print("Inside Login")
                 username, password = payload.split("|")
                 print(f"🔑 Logging in user: {username}")
                 login_success = handle_log(client_socket, users, username, password)
-                print(f"Login response: {login_success}")
                 # Continue handling commands after successful login
                 if login_success == True:
-                    request = client_socket.recv(BUFFER_SIZE)
-                    cmd, payload, status = parse_packet(request)
-
-                    if status != RES_OK.strip('\x00'):
-                        client_socket.sendall(create_packet(RES_ERR_REQ_FMT, "Invalid request format."))
-                        continue
-                    if cmd == REQ_BYE.strip('\x00'):
-                        handle_bye(client_socket, username)
-                        break
-                    elif cmd == REQ_CPW.strip('\x00'):
-                        old_password, new_password = payload.split("|")
-                        handle_cpw(client_socket, users, username, old_password, new_password)
-                    elif cmd == REQ_SET.strip('\x00'):
-                        password, profile_data = payload.split("|", 1)
-                        handle_set(client_socket, users, username, password, profile_data)
-                    elif cmd == REQ_GET.strip('\x00'):
-                        password, target_username = payload.split("|")
-                        handle_get(client_socket, users, username, password, target_username)
-                    elif cmd == REQ_ALL.strip('\x00'):
-                        password = payload
-                        handle_all(client_socket, users, username, password)
-                    else:
-                        client_socket.sendall(create_packet(RES_ERR_INV_CMD, "❌ Invalid command."))
+                    print("✅ User Login Success")
+                    continue
+                    # if cmd == REQ_CPW.strip('\x00'):
+                    #     old_password, new_password = payload.split("|")
+                    #     handle_cpw(client_socket, users, username, old_password, new_password)
+                    # elif cmd == REQ_SET.strip('\x00'):
+                    #     username, message, target_user = payload.split("|")
+                    #     handle_set(client_socket, users, username, message, target_user)
+                    # elif cmd == REQ_GET.strip('\x00'):
+                    #     username = payload
+                    #     handle_get(client_socket, users, username,)
+                    # elif cmd == REQ_ALL.strip('\x00'):
+                    #     password = payload
+                    #     handle_all(client_socket, users, username, password)
                 else:
+                    print("❌ User Login failed.")
                     continue
     except Exception as e:   
         print(f"❌ Error handling {client_address}: {e}")

@@ -51,12 +51,11 @@ def authenticate(client_socket):
                 password = input("🔑 Enter your password: ").strip()
                 if not validate_length(password, LEN_PASSWORD, "Password"):
                     continue
-                print(username, password)
                 login_response = request_login(client_socket, username, password)
 
                 if login_response[0] == RES_OK.strip('\x00'):
                     print(f"🎉 Welcome, {username}!")
-                    return username
+                    return username, password
                 else:
                     print("❌ Invalid password. Try again.")
         # Username does not exist
@@ -88,7 +87,7 @@ if __name__ == "__main__":
     client_socket = connect_to_server()
 
     # Authenticate user (login or register)
-    username = authenticate(client_socket)
+    username, password = authenticate(client_socket)
 
     # Main loop
     while True:
@@ -96,4 +95,18 @@ if __name__ == "__main__":
         choice = input("Enter your choice (1, 2, 3): ")
         if choice == "3":
             request_logout(client_socket, username)
+        else:
+            request_get_profile(client_socket, username)
+            if choice == "1":
+                target_user = input("Enter the recipient's username: ")
+                        # Check if username exists
+                user_exists_response = request_check_user_exists(client_socket, target_user)
+                while user_exists_response[0] != RES_OK.strip('\x00'):
+                    print("❌ User not found. Try again.")
+                    target_user = input("Enter the recipient's username: ")
+                    user_exists_response = request_check_user_exists(client_socket, target_user)
+                # Username exists
+                request_get_profile(client_socket, target_user)
+                message = input("Enter your message: ")
+                request_set_profile(client_socket, username, message, target_user)
         break

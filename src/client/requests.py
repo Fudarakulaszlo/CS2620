@@ -44,15 +44,13 @@ def request_change_password(client_socket, username, old_password, new_password)
     return response_cmd, response_payload, status
 
 # Request to set user profile data
-def request_set_profile(client_socket, username, password, profile_data): 
-    hashed_password = hash_password_sha256(password)
-    response_cmd, response_payload, status = send_request(client_socket, REQ_SET, f"{username}|{hashed_password}|{profile_data}")
+def request_set_profile(client_socket, username, message, target_user): 
+    response_cmd, response_payload, status = send_request(client_socket, REQ_SET, f"{username}|{message}|{target_user}")
     return response_cmd, response_payload, status
 
 # Request to get a user's profile data
-def request_get_profile(client_socket, username, password, target_username): 
-    hashed_password = hash_password_sha256(password)
-    response_cmd, response_payload, status = send_request(client_socket, REQ_GET, f"{username}|{hashed_password}|{target_username}")
+def request_get_profile(client_socket, username): 
+    response_cmd, response_payload, status = send_request(client_socket, REQ_GET, f"{username}")
     return response_cmd, response_payload, status
 
 # Request to list all users

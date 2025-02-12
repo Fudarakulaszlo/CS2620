@@ -25,7 +25,6 @@ REQ_SET = "SETPFILE"   # Set user profile file
 REQ_GET = "GETPFILE"   # Get a user’s profile
 REQ_ALL = "ALLUSERS"   # Get all registered users
 
-
 # Response Codes (Sent by Server)
 RES_OK = "___OK___"                         # Success
 RES_ERR_USER_EXISTS = "ERR_USER_EXISTS"     # Username already exists
@@ -66,7 +65,6 @@ def create_packet(command, payload):
 
     # Pack as big-endian 4-byte integer
     payload_length_bytes = struct.pack("!I", payload_len)
-
     packet = (
         b'\xAA\xBB' +                       # Magic header
         command.ljust(CMD_SIZE, b'\x00') +  # Command (8 bytes, padded)
@@ -74,8 +72,6 @@ def create_packet(command, payload):
         payload_bytes +                     # Payload (variable length)
         compute_checksum(payload_bytes)     # Checksum (1 byte)
     )
-
-    print(f"📦 Created Packet: {packet}")  # Debugging print
     return packet
 
 # Parse a received packet
