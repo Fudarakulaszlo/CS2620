@@ -92,13 +92,16 @@ if __name__ == "__main__":
     # Main loop
     while True:
         get_profile_response = request_get_profile(client_socket, username)
-        messages = get_profile_response[1].strip().split('\n')
         formatted_messages, unread_messages = [], []
-        for message in messages:
-            status, content, sender = message.split(',')
-            formatted_message = f"[{status.capitalize()}] {sender}: {content}"
-            if status.upper() == "UNREAD": unread_messages.append(formatted_message)
-        print(f"\n📮 Unread messages count: {len(unread_messages)}")
+        if get_profile_response[1] != "":
+            messages = get_profile_response[1].strip().split('\n')
+            for message in messages:
+                status, content, sender = message.split(',')
+                formatted_message = f"[{status.capitalize()}] {sender}: {content}"
+                if status.upper() == "UNREAD": unread_messages.append(formatted_message)
+            print(f"📮 Unread messages count: {len(unread_messages)}")
+        else:
+            print(f"📮 You have no unread messages!")
         print("🌐 Menu: \n1. 📤 Send a message \n2. 📨 View messages \n3. 👋 Logout")
         choice = input("📝 Enter your choice (1, 2, 3): ")
         if choice not in ["1", "2", "3"]:
@@ -126,6 +129,9 @@ if __name__ == "__main__":
                 print("📬 Message sent!")
                 continue
             else:
+                if len(unread_messages) == 0:
+                    print(f"📮 You have no unread messages!")
+                    continue
                 for unread in unread_messages:
                     print(f"💬 {unread}")
                 request_update_profile(client_socket, username)
