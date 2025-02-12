@@ -130,7 +130,6 @@ if __name__ == "__main__":
                 continue
             else:
                 if len(unread_messages) == 0:
-                    print(f"📮 You have no unread messages!")
                     continue
                 for unread in unread_messages:
                     print(f"💬 {unread}")
