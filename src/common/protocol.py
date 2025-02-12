@@ -14,29 +14,30 @@ LEN_PASSWORD = 64                            # Max password length
 LEN_PASSHASH = hashlib.sha256().digest_size  # 32 bytes (SHA-256 hash)
 LEN_PROFILE_FILE = 1048576                   # 1MB max profile size
 
-# Command IDs (1 Byte Each)
-REQ_LOG = b"LOGIN___"   # Login request
-REQ_REG = b"REGISTER"   # Register new user
-REQ_BYE = b"EXIT____"   # Close connection
-REQ_SAV = b"PERSIST_"   # Force server to save data
-REQ_CPW = b"CHANGEPW"   # Change password
-REQ_SET = b"SETPFILE"   # Set user profile file
-REQ_GET = b"GETPFILE"   # Get a user’s profile
-REQ_ALL = b"ALLUSERS"   # Get all registered users
+# Request Codes (Sent by Client)
+REQ_CHE = "CHECK___"   # Check if username exists
+REQ_LOG = "LOGIN___"   # Login request
+REQ_REG = "REGISTER"   # Register new user
+REQ_BYE = "EXIT____"   # Close connection
+REQ_SAV = "PERSIST_"   # Force server to save data
+REQ_CPW = "CHANGEPW"   # Change password
+REQ_SET = "SETPFILE"   # Set user profile file
+REQ_GET = "GETPFILE"   # Get a user’s profile
+REQ_ALL = "ALLUSERS"   # Get all registered users
 
 
 # Response Codes (Sent by Server)
-RES_OK = b"___OK___"                         # Success
-RES_ERR_USER_EXISTS = b"ERR_USER_EXISTS"     # Username already exists
-RES_ERR_LOGIN = b"ERR_LOGIN"                 # Invalid username or password
-RES_ERR_REQ_FMT = b"ERR_REQ_FMT"             # Bad request format
-RES_ERR_NO_DATA = b"ERR_NO_DATA"             # No data found
-RES_ERR_NO_USER = b"ERR_NO_USER"             # Requested user not found
-RES_ERR_INV_CMD = b"ERR_INVALID_COMMAND"     # Invalid command
-RES_ERR_XMIT = b"ERR_XMIT"                   # Transmission error
-RES_ERR_CRYPTO = b"ERR_CRYPTO"               # Decryption error
-RES_ERR_SERVER = b"ERR_SERVER"               # Internal server error
-RES_ERR_UNIMPLEMENTED = b"ERR_UNIMPLEMENTED" # Feature not implemented
+RES_OK = "___OK___"                         # Success
+RES_ERR_USER_EXISTS = "ERR_USER_EXISTS"     # Username already exists
+RES_ERR_LOGIN = "ERR_LOGIN"                 # Invalid username or password
+RES_ERR_REQ_FMT = "ERR_REQ_FMT"             # Bad request format
+RES_ERR_NO_DATA = "ERR_NO_DATA"             # No data found
+RES_ERR_NO_USER = "ERR_NO_USER"             # Requested user not found
+RES_ERR_INV_CMD = "ERR_INVALID_COMMAND"     # Invalid command
+RES_ERR_XMIT = "ERR_XMIT"                   # Transmission error
+RES_ERR_CRYPTO = "ERR_CRYPTO"               # Decryption error
+RES_ERR_SERVER = "ERR_SERVER"               # Internal server error
+RES_ERR_UNIMPLEMENTED = "ERR_UNIMPLEMENTED" # Feature not implemented
 
 # Packet Structure (Fixed-Size Header + Payload)
 HEADER_SIZE = 2  # Fixed header (magic bytes)
@@ -63,13 +64,18 @@ def create_packet(command, payload):
     payload_bytes = payload.encode()
     payload_len = len(payload_bytes)
 
+    # Pack as big-endian 4-byte integer
+    payload_length_bytes = struct.pack("!I", payload_len)
+
     packet = (
-        b'\xAA\xBB' +  # Magic header
-        command.ljust(CMD_SIZE, b'\x00') +  # Command (padded to 8 bytes)
-        struct.pack("!I", payload_len) +  # Payload length (4-byte integer)
-        payload_bytes +  # Actual payload
-        compute_checksum(payload_bytes)  # Checksum (1 byte)
+        b'\xAA\xBB' +                       # Magic header
+        command.ljust(CMD_SIZE, b'\x00') +  # Command (8 bytes, padded)
+        payload_length_bytes +              # Payload length (4 bytes, big-endian)
+        payload_bytes +                     # Payload (variable length)
+        compute_checksum(payload_bytes)     # Checksum (1 byte)
     )
+
+    print(f"📦 Created Packet: {packet}")  # Debugging print
     return packet
 
 # Parse a received packet
@@ -85,13 +91,16 @@ def parse_packet(packet):
         print("❌ Invalid header detected.")
         return None, None, "Invalid header"
 
-    command = packet[HEADER_SIZE:HEADER_SIZE + CMD_SIZE].strip(b'\x00')
+    # Extract and clean up command
+    command = packet[HEADER_SIZE:HEADER_SIZE + CMD_SIZE].rstrip(b'\x00')  # Remove padding
 
     try:
         payload_len = struct.unpack("!I", packet[HEADER_SIZE + CMD_SIZE:HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE])[0]
     except struct.error:
         print("❌ Failed to unpack payload length.")
         return None, None, "Invalid payload length"
+
+    print(f"🛠  Parsed Command: {command}, Payload Length: {payload_len}")  # Debugging print
 
     if len(packet) < HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len + 1:
         print(f"❌ Truncated packet: Expected {HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len + 1}, got {len(packet)}")
@@ -100,6 +109,7 @@ def parse_packet(packet):
     payload = packet[HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE:HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len]
     checksum = packet[HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len]
 
+    # Verify checksum
     if checksum != compute_checksum(payload)[0]:
         print("❌ Checksum mismatch.")
         return None, None, "Checksum mismatch"

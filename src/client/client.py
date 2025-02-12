@@ -6,22 +6,20 @@ This file contains the client code for the chat application.
 """
 
 import socket
-import argparse
-import os
 import sys
-import json
+import os
 import getpass
-import hashlib
 
 # Add the parent directory to the module search path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.protocol import *
+from requests import *
 
 # Server Configuration
 HOST = "localhost"
 PORT = 9999  # Must match the server port
 
-# Connects to the chat server
+# Connect to the chat server
 def connect_to_server(): 
     try:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -36,67 +34,53 @@ def connect_to_server():
         sys.exit(1)
 
 # Disconnect from the server
-def disconnect_from_server(client_socket):
+def disconnect_from_server(client_socket): 
     try:
         client_socket.close()
         print("🚫 Disconnected from server.")
     except Exception as e:
         print(f"❌ Error disconnecting from server: {e}")
 
-# Send a message to the server and receive a response
-def send_packet(client_socket, packet): 
-    client_socket.sendall(packet)
-    response = client_socket.recv(BUFFER_SIZE)
-    print(f"📩 Client Received Raw Packet: {response}")  # Debugging print
-    return parse_packet(response)
+# Authenticate user (login/register)
+def authenticate(client_socket): 
+    while True:
+        username = input(">  Enter your username: ").strip()
 
-# Handle user authentication (login/register)
-def authenticate(client_socket):
-    username = input("Enter your username: ").strip()
+        # Check if username exists
+        response = send_request(client_socket, REQ_CHE, username) 
 
-    # Send login request
-    packet = create_packet(REQ_LOG, username)
-    response_cmd, response_payload, status = send_packet(client_socket, packet)
+        if "Username exists" in response:
+            # Username exists, ask for password
+            password = getpass.getpass("Enter your password: ").strip()
+            response = request_login(client_socket, username, password)
 
-    if status != "OK":
-        print("❌ Error: Invalid response format.")
-        return None
+            if "Login successful" in response:
+                print(f"🎉 Welcome, {username}!")
+                return username
+            else:
+                print("❌ Invalid password. Try again.")
 
-    if response_cmd == RES_ERR_NO_USER:
-        # New user → Register
-        print("🔹 Username not found. Registering new user...")
-        password = getpass.getpass("Enter a new password: ").strip()
-        hashed_password = hash_password_sha256(password)
-        packet = create_packet(REQ_REG, f"{username}|{hashed_password}")
-        response_cmd, response_payload, status = send_packet(client_socket, packet)
-        
-        print(response_payload)
-        return username if response_cmd == RES_OK else None
+        elif "Username not found" in response:
+            # Username does not exist, prompt to register
+            print("🔹 Username not found. Registering a new account...")
+            while True:
+                new_username = input("Enter a unique username: ").strip()
+                password = getpass.getpass("Enter a new password: ").strip()
+                response = request_register(client_socket, new_username, password)
 
-    elif response_cmd == RES_OK:
-        # Existing user → Login
-        password = getpass.getpass("Enter your password: ").strip()
-        hashed_password = hash_password_sha256(password)
-        packet = create_packet(REQ_LOG, f"{username}|{hashed_password}")
-        response_cmd, response_payload, status = send_packet(client_socket, packet)
-
-        print(response_payload)
-        return username if response_cmd == RES_OK else None
-
-    return None
+                if "Username already taken" in response:
+                    print("❌ Username already taken. Try another.")
+                else:
+                    print("✅ Registration successful. Please log in.")
+                    username = new_username  # Set new username for login
+                    break  # Proceed to login
 
 if __name__ == "__main__":
     # Connect to server
     client_socket = connect_to_server()
 
-    # Authenticate user
+    # Authenticate user (login or register)
     username = authenticate(client_socket)
-    if not username:
-        print("❌ Authentication failed. Exiting...")
-        disconnect_from_server(client_socket)
-        sys.exit(1)
-
-    print(f"🎉 Welcome, {username}!")
 
     # Disconnect from server
     disconnect_from_server(client_socket)

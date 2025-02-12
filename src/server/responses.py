@@ -1,7 +1,9 @@
 """
-response.py
+* response.py
+* Author: Áron Vékássy, Karen Li
 
-Handles client requests and generates structured responses using the custom wire protocol.
+This file handles client requests and generates structured responses 
+using the custom wire protocol.
 """
 
 import os
@@ -16,9 +18,18 @@ from common.protocol import *
 def verify_password(stored_password, entered_password): 
     return stored_password == hash_password_sha256(entered_password)
 
+# Handle `REQ_CHE` – Check if username exists
+def handle_check_user_exists(client_socket, users, username):
+    """Checks if a username exists in the user database."""
+    if username in users:
+        response = create_packet(RES_OK, "✅ Username exists. Proceed to login.")
+    else:
+        response = create_packet(RES_ERR_NO_USER, "❌ Username not found. Proceed to registration.")
+    
+    client_socket.sendall(response)
+
 # Handle `REQ_ALL` – Get all registered usernames
-def handle_all(client_socket, users, username, password):
-    """Responds to ALL request with a list of all registered users."""
+def handle_all(client_socket, users, username, password): 
     if username not in users or not verify_password(users[username], password):
         response = create_packet(RES_ERR_LOGIN, "❌ Authentication failed.")
         client_socket.sendall(response)
@@ -29,8 +40,7 @@ def handle_all(client_socket, users, username, password):
     client_socket.sendall(response)
 
 # Handle `REQ_CPW` – Change user password
-def handle_cpw(client_socket, users, username, old_password, new_password):
-    """Allows user to change their password."""
+def handle_cpw(client_socket, users, username, old_password, new_password): 
     if username not in users or not verify_password(users[username], old_password):
         response = create_packet(RES_ERR_LOGIN, "❌ Incorrect password.")
         client_socket.sendall(response)
@@ -41,8 +51,7 @@ def handle_cpw(client_socket, users, username, old_password, new_password):
     client_socket.sendall(response)
 
 # Handle `REQ_SET` – Save user profile data
-def handle_set(client_socket, users, username, password, profile_data):
-    """Stores a user’s profile data if authentication is successful."""
+def handle_set(client_socket, users, username, password, profile_data): 
     if username not in users or not verify_password(users[username], password):
         response = create_packet(RES_ERR_LOGIN, "❌ Authentication failed.")
         client_socket.sendall(response)
@@ -56,8 +65,7 @@ def handle_set(client_socket, users, username, password, profile_data):
     client_socket.sendall(response)
 
 # Handle `REQ_GET` – Retrieve user profile data
-def handle_get(client_socket, users, username, password, target_username):
-    """Retrieves the profile data of a given user."""
+def handle_get(client_socket, users, username, password, target_username): 
     if username not in users or not verify_password(users[username], password):
         response = create_packet(RES_ERR_LOGIN, "❌ Authentication failed.")
         client_socket.sendall(response)
@@ -75,8 +83,7 @@ def handle_get(client_socket, users, username, password, target_username):
     client_socket.sendall(response)
 
 # Handle `REQ_REG` – Register a new user
-def handle_reg(client_socket, users, username, password):
-    """Registers a new user with the given username and password."""
+def handle_reg(client_socket, users, username, password): 
     if username in users:
         response = create_packet(RES_ERR_USER_EXISTS, "❌ Username already exists.")
         client_socket.sendall(response)
