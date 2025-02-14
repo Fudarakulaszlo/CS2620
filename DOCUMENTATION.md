@@ -14,11 +14,12 @@ This document provides an overview of the wire protocol used in the chat applica
 | REGISTER    | Register a new user.            |
 | EXIT____    | Close the connection.           |
 | PERSIST_    | Force server to save data.      |
-| CHANGEPW    | Change user password.           |
 | SETPFILE    | Upload user profile file.       |
 | GETPFILE    | Retrieve user profile file.     |
 | UPDATE__    | Update user profile.            |
-| ALLUSERS    |  Retrieve all registered users. |
+| ALLUSERS    | Retrieve all registered users.  |
+| REQ_DME     | Delete a message                |
+| REQ_DEL     | Delete a user                   |
 ```
 
 ## Request Codes (Client-Sent Commands)

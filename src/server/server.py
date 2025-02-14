@@ -129,7 +129,7 @@ def handle_client(client_socket, client_address, users):
                 username = payload
                 print(f"🚫 Deleting user: {username}")
                 handle_delete(client_socket, users, username)
-            else:
+            else: # Unknown command
                 print("❌ Unknown command. Sending error response.")
     except Exception as e:   
         print(f"❌ Error handling {client_address}: {e}")
@@ -147,7 +147,7 @@ def start_server(args):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind(("0.0.0.0", args.port))
-    server_socket.listen(25)
+    server_socket.listen(500)
     print(f"🚀 Server listening on port {args.port}...")
     try:
         while True:
