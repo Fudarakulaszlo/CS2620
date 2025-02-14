@@ -1,8 +1,14 @@
 """
 * File: client_gui.py
-* Author: Áron Vékássy, Karen Li
+* Author: Áron Vékássy, Karen Li (adapted to GUI by you)
 *
 * This file contains a Tkinter-based GUI client for the chat application.
+* In this version:
+*  - After login, a landing page displays a list of conversation partners with unread counts.
+*  - The landing page also includes Logout and Delete Account buttons.
+*  - Additionally, there is a "Start New Chat" section that lets you select a recipient and start a chat.
+*  - Double-clicking an entry in the list opens that conversation in the chat view.
+*  - The send message area is integrated in the chat view.
 """
 
 import socket
@@ -15,6 +21,15 @@ from tkinter import messagebox, ttk
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.protocol import *  # Provides validate_length, LEN_UNAME, LEN_PASSWORD, LEN_MESSAGE, etc.
 from client.requests import *  # Provides request_login, request_register, request_save_users, etc.
+
+# Helper function to check OK responses in both bytes and JSON string formats.
+def is_ok(response_value):
+    ok_str = "___OK___"
+    if isinstance(response_value, bytes):
+        return response_value.strip(b'\x00') == ok_str.encode('utf-8')
+    elif isinstance(response_value, str):
+        return response_value.strip() == ok_str
+    return False
 
 # Server Configuration
 HOST = "localhost"
@@ -98,21 +113,17 @@ class LoginFrame(tk.Frame):
         super().__init__(master)
         self.master = master
 
-        # Username Label and Entry
         tk.Label(self, text="Username:").grid(row=0, column=0, padx=10, pady=10, sticky="e")
         self.entry_username = tk.Entry(self)
         self.entry_username.grid(row=0, column=1, padx=10, pady=10)
 
-        # Password Label and Entry
         tk.Label(self, text="Password:").grid(row=1, column=0, padx=10, pady=10, sticky="e")
         self.entry_password = tk.Entry(self, show="*")
         self.entry_password.grid(row=1, column=1, padx=10, pady=10)
 
-        # Message label for errors/info
         self.label_message = tk.Label(self, text="", fg="red")
         self.label_message.grid(row=2, column=0, columnspan=2)
 
-        # Buttons for Login and Register
         self.button_login = tk.Button(self, text="Login", width=12, command=self.login)
         self.button_login.grid(row=3, column=0, padx=10, pady=10)
         self.button_register = tk.Button(self, text="Register", width=12, command=self.register)
@@ -130,12 +141,12 @@ class LoginFrame(tk.Frame):
             return
 
         user_exists_response = request_check_user_exists(self.master.client_socket, username)
-        if user_exists_response[0] != RES_OK.strip(b'\x00'):
+        if not is_ok(user_exists_response[0]):
             self.label_message.config(text="User does not exist. Please register.")
             return
 
         login_response = request_login(self.master.client_socket, username, password)
-        if login_response[0] == RES_OK.strip(b'\x00'):
+        if is_ok(login_response[0]):
             self.master.username = username
             self.master.password = password
             self.label_message.config(text="Login successful!", fg="green")
@@ -155,14 +166,14 @@ class LoginFrame(tk.Frame):
             return
 
         user_exists_response = request_check_user_exists(self.master.client_socket, username)
-        if user_exists_response[0] == RES_OK.strip(b'\x00'):
+        if is_ok(user_exists_response[0]):
             self.label_message.config(text="User already exists. Please login.", fg="red")
             return
 
         register_response = request_register(self.master.client_socket, username, password)
-        if register_response[0] == RES_OK.strip(b'\x00'):
+        if is_ok(register_response[0]):
             save_response = request_save_users(self.master.client_socket, username)
-            if save_response[0] == RES_OK.strip(b'\x00'):
+            if is_ok(save_response[0]):
                 self.label_message.config(text="Account created. Please login.", fg="green")
             else:
                 self.label_message.config(text="Error saving user data.", fg="red")
@@ -173,7 +184,7 @@ class LandingFrame(tk.Frame):
     """Landing page showing the list of accounts you have chatted with,
     along with the number of unread messages.
     Double-click an entry to open that conversation.
-    Also includes Logout and Delete Account buttons.
+    Also includes Logout and Delete Account buttons, and a section to start a new chat.
     """
     def __init__(self, master, open_chat_callback):
         super().__init__(master)
@@ -187,12 +198,38 @@ class LandingFrame(tk.Frame):
         self.refresh_button = tk.Button(self, text="Refresh", command=self.refresh)
         self.refresh_button.pack(pady=5)
 
+        # New section to start a new chat.
+        new_chat_frame = tk.Frame(self)
+        new_chat_frame.pack(pady=10)
+        tk.Label(new_chat_frame, text="Start New Chat:").grid(row=0, column=0, padx=5, pady=5)
+        self.new_recipient_var = tk.StringVar(new_chat_frame)
+        self.new_recipient_menu = tk.OptionMenu(new_chat_frame, self.new_recipient_var, "")
+        self.new_recipient_menu.grid(row=0, column=1, padx=5, pady=5)
+        self.start_chat_button = tk.Button(new_chat_frame, text="Start Chat", command=self.start_new_chat)
+        self.start_chat_button.grid(row=0, column=2, padx=5, pady=5)
+
+        # Logout and Delete Account buttons
         self.button_frame = tk.Frame(self)
         self.button_frame.pack(pady=5)
         self.logout_button = tk.Button(self.button_frame, text="Logout", width=12, command=self.logout)
         self.logout_button.pack(side="left", padx=5)
         self.delete_account_button = tk.Button(self.button_frame, text="Delete Account", width=12, command=self.delete_account)
         self.delete_account_button.pack(side="left", padx=5)
+
+    def update_new_recipient_menu(self):
+        """Update the new chat recipient drop-down with available users (excluding self)."""
+        get_users_response = request_list_users(self.master.client_socket, self.master.username)
+        users_str = get_users_response[1]
+        users = users_str.strip().split('\n') if users_str.strip() != "" else []
+        users = [u for u in users if u != self.master.username]
+        if not users:
+            users = [""]
+        menu = self.new_recipient_menu["menu"]
+        menu.delete(0, "end")
+        for user in users:
+            menu.add_command(label=user, command=lambda value=user: self.new_recipient_var.set(value))
+        if self.new_recipient_var.get() not in users:
+            self.new_recipient_var.set(users[0])
 
     def refresh(self):
         get_profile_response = request_get_profile(self.master.client_socket, self.master.username)
@@ -214,6 +251,7 @@ class LandingFrame(tk.Frame):
             display_text = f"{sender} ({unread})" if unread else sender
             self.listbox.insert(tk.END, display_text)
         self.master.chat_frame.update_recipient_menu()
+        self.update_new_recipient_menu()
 
     def poll_messages(self):
         self.refresh()
@@ -229,6 +267,13 @@ class LandingFrame(tk.Frame):
             else:
                 recipient = text
             self.open_chat_callback(recipient)
+
+    def start_new_chat(self):
+        recipient = self.new_recipient_var.get().strip()
+        if not recipient:
+            messagebox.showerror("Error", "Please select a recipient.")
+            return
+        self.open_chat_callback(recipient)
 
     def logout(self):
         try:
@@ -262,7 +307,7 @@ class LandingFrame(tk.Frame):
 
 class ChatFrame(tk.Frame):
     """Frame for the main chat interface with each conversation in its own tab.
-       A persistent send message area with a recipient drop-down is integrated at the bottom.
+    A persistent send message area with a recipient drop-down is integrated at the bottom.
     """
     def __init__(self, master):
         super().__init__(master)
@@ -326,11 +371,9 @@ class ChatFrame(tk.Frame):
                     norm_sender = sender.strip().lower()
                     new_data.setdefault(norm_sender, []).append((i, status, content))
 
-        # Update only tabs that are already open.
         for norm_sender, conv in self.conversations.items():
             messages = new_data.get(norm_sender, [])
             listbox = conv["listbox"]
-            # Save current scroll position.
             yview = listbox.yview()
             listbox.delete(0, tk.END)
             conv["message_indices"].clear()
