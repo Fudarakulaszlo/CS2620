@@ -49,16 +49,3 @@ This document provides an overview of the wire protocol used in the chat applica
 |   (2B)     |   (8B)     |      (4B)      |  (Varies)  |   (1B)    |
 +------------+------------+----------------+------------+-----------+
 ```
-
-## Notes
-
-Set up socket as seen in class
-
-Wire protocol should have one byte as command and then the message
-
-Store password hashed with SHA256
-
-Created GUI with tkinter
-
-Registration from GUI does not work, returns error 
-Connection error: 'utf-8' codec can't decode byte 0xaa in position 0: invalid start byte

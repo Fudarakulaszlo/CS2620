@@ -12,8 +12,9 @@ src/
   │       └── response.py
   ├── common/
   │       ├── protocols.py
-  │       └── json_protocol.py
-  │       └── messages/
+  │       ├── json_protocol.py
+  │       ├── messages/
+  │       └── user.dat
   └── GUI/ 
         └── gui.py
 
@@ -48,7 +49,13 @@ To run the server, you can run the following commands in your terminal:
 ```
 python server/server.py -p 9999
 ```
-In a separate terminal, you can run the following commands to test the client:
+
+In a separate terminal, you can run the following commands to test the client with GUI:
+```
+python GUI/gui.py
+```
+
+OR test the client from a terminal:
 ```
 python client/client.py
 ```

@@ -9,7 +9,7 @@ import struct
 import hashlib
 
 # JSON mode flag
-USE_JSON = True
+USE_JSON = False
 
 # TIME flag
 CHE_TIME = True
