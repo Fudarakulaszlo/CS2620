@@ -8,6 +8,12 @@ This file contains the wire protocol for the chat application.
 import struct
 import hashlib
 
+# JSON mode flag
+USE_JSON = True
+
+# TIME flag
+CHE_TIME = True
+
 # Constants
 LEN_UNAME = 32                               # Max username length
 LEN_PASSWORD = 32                            # Max password length

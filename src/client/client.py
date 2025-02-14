@@ -40,9 +40,9 @@ def authenticate(client_socket):
         username = input("👤 Enter your username: ").strip()
         if not validate_length(username, LEN_UNAME, "Username"): continue
         # Check if username exists
-        user_exists_response = request_check_user_exists(client_socket, username)
+        user_exists_response = request_check_user_exists(client_socket, username) 
         # Username exists
-        if user_exists_response[0] == RES_OK: 
+        if user_exists_response[0] == RES_OK or user_exists_response[0] == '___OK___': 
             print("🔹 Username found. Proceeding to login...")
             while True:
                 # Prompt for password and check if password entered is valid
@@ -50,8 +50,8 @@ def authenticate(client_socket):
                 if not validate_length(password, LEN_PASSWORD, "Password"): continue
                 # Request login
                 login_response = request_login(client_socket, username, password)
-                # Login successful
-                if login_response[0] == RES_OK:
+                # Login successful 
+                if login_response[0] == RES_OK or user_exists_response[0] == '___OK___':
                     print(f"🎉 Welcome, {username}!")
                     return username, password
                 # Login failed
@@ -70,10 +70,10 @@ def authenticate(client_socket):
                 # Request registration
                 register_response = request_register(client_socket, new_username, password)
                 # Registration successful
-                if register_response[0] == RES_OK:
+                if register_response[0] == RES_OK or register_response[0] == '___OK___':
                     # Request to save user data
                     save_response = request_save_users(client_socket, new_username)
-                    if save_response[0] == RES_OK:
+                    if save_response[0] == RES_OK or save_response[0] == '___OK___':
                         print(f"🎉 New account created for {new_username}! Please log in.")
                         username = new_username  # Set new username for login
                         break  # Proceed to login
@@ -109,9 +109,9 @@ if __name__ == "__main__":
             print(f"📮 You have no unread messages!")
 
         # Display menu
-        print("🌐 Menu: \n1. 📤 Send a message \n2. 📨 View messages \n3. 🗑  Delete a message \n4. 📒 Delete account \n5. 🚪 Logout")
+        print("\n🌐 Menu: \n1. 📤 Send a message \n2. 📨 View messages \n3. 🗑  Delete a message \n4. 📒 Delete account \n5. 🚪 Logout")
         # Get user choice and check if choice entered is valid
-        choice = input("📝 Enter your choice (1, 2, 3, 4, 5): ")
+        choice = input("\n📝 Enter your choice (1, 2, 3, 4, 5): ")
         if choice not in ["1", "2", "3", "4", "5"]:
             print("❌ Invalid choice. Please try again.")
             continue
@@ -128,12 +128,12 @@ if __name__ == "__main__":
                 print("👥 Available users:")
                 for u in users: print(f"👤 {u}")
                 # Get recipient's username and check if username entered is valid
-                target_user  = input("👥 Enter the recipient's username: ").strip()
+                target_user  = input("\n👥 Enter the recipient's username: ").strip()
                 if not validate_length(target_user, LEN_UNAME, "Username"): continue
                 # Check if username exists
                 user_exists_response = request_check_user_exists(client_socket, target_user)
                 # Username does not exist
-                while user_exists_response[0] != RES_OK:
+                while user_exists_response[0] != RES_OK and user_exists_response[0] != '___OK___':
                     print("❌ User not found. Try again.")
                     target_user = input("👥 Enter the recipient's username: ").strip()
                     if not validate_length(target_user, LEN_UNAME, "Username"): continue
@@ -164,6 +164,7 @@ if __name__ == "__main__":
                     print("❌ You have no messages to delete.")
                     continue
                 # Display all messages
+                print("\n💬 Your messages:")
                 for i, message in enumerate(formatted_messages):
                     if message.startswith("[Unread]"): print(f"🔴 {i+1}. {message}")
                     elif message.startswith("[Read]"): print(f"🟢 {i+1}. {message}")

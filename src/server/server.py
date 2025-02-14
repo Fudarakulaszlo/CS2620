@@ -80,11 +80,17 @@ def handle_client(client_socket, client_address, users):
                 print(f"🚫 Client {client_address} disconnected.")
                 break
 
-            # Parse request
-            cmd, payload, status = parse_packet(request)
+            # Use JSON protocol if enabled
+            if USE_JSON:
+                request_str = request.decode()
+                cmd, payload, status = parse_json(request_str)
+                # mkae cmd and status bytes
+                cmd = cmd.encode()
+            else:
+                cmd, payload, status = parse_packet(request)
             print(f"📩 Parsed Command: {cmd}, Payload: {payload}, Status: {status}")
 
-            if status != RES_OK:
+            if status != RES_OK and status != 'OK':
                 print("❌ Error parsing packet. Sending error response.")
                 client_socket.sendall(create_packet(RES_ERR_REQ_FMT, "Invalid request format."))
                 continue
@@ -94,10 +100,11 @@ def handle_client(client_socket, client_address, users):
                 break
             # Handle authentication commands
             if cmd == REQ_CHE: # Check existing user
-                print(f"🔍 Checking if user exists: {payload}")
-                user_exist = handle_check_user_exists(client_socket, users, payload)
-                if user_exist: print(f"✅ User {payload} exists.")
-                else: print(f"❌ User {payload} does not exist.")
+                username = payload
+                print(f"🔍 Checking if user exists: {username}")
+                user_exist = handle_check_user_exists(client_socket, users, username)
+                if user_exist: print(f"✅ User {username} exists.")
+                else: print(f"❌ User {username} does not exist.")
             elif cmd == REQ_REG: # Register new user
                 username, password = payload.split("|")
                 print(f"📝 Registering user: {username}")

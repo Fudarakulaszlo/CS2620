@@ -5,19 +5,34 @@
 This file contains the client request code for the chat application.
 """
 
-import socket
 import sys
 import os
+import time
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.protocol import *
+from common.json_protocol import *
 
 # Send a structured request to the server and receive a response
 def send_request(client_socket, command, payload=""): 
-    packet = create_packet(command, payload)
-    client_socket.sendall(packet)
-    response = client_socket.recv(BUFFER_SIZE)
-    return parse_packet(response)
+    if CHE_TIME: start_time = time.time()
+    if USE_JSON:
+        if isinstance(command, bytes): command = command.decode() 
+        request_str = create_json(command, payload)
+        client_socket.sendall(request_str.encode())
+        response = client_socket.recv(BUFFER_SIZE).decode() 
+        parsed_response = parse_json(response)
+    else:
+        packet = create_packet(command, payload)
+        client_socket.sendall(packet)
+        response = client_socket.recv(BUFFER_SIZE) 
+        parsed_response = parse_packet(response)
+    if CHE_TIME: 
+        end_time = time.time()
+        print(f"\n📏 Request Size: {len(request_str.encode() if USE_JSON else packet)} bytes")
+        print(f"📏 Response Size: {len(response)} bytes")
+        print(f"⏳ Round-trip time: {end_time - start_time:.6f} sec \n")
+    return parsed_response
 
 # Request to check if a username exists
 def request_check_user_exists(client_socket, username): 

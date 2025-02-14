@@ -13,6 +13,7 @@ import json
 # Add the parent directory to the module search path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.protocol import *
+from common.json_protocol import *
 
 USERS_FILE = "common/users.dat"  # File to store user credentials
 MESSAGES_DIR = os.path.join("common", "messages")
@@ -20,8 +21,13 @@ os.makedirs(MESSAGES_DIR, exist_ok=True)
 
 # Send a structured response to the client
 def send_response(client_socket, status, payload=""):
-    response = create_packet(status, payload)
-    client_socket.sendall(response)
+    if USE_JSON:
+        if isinstance(status, bytes): status = status.decode() 
+        response_str = create_json(status, payload)
+        client_socket.sendall(response_str.encode())
+    else:
+        response = create_packet(status, payload)
+        client_socket.sendall(response)
 
 # Handle `REQ_CHE` – Check if username exists
 def handle_check_user_exists(client_socket, users, username):
