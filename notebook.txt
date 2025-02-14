@@ -1,0 +1,16 @@
+## Notes
+
+Set up socket as seen in class
+
+Wire protocol should have one byte as command and then the message
+
+Store password hashed with SHA256
+
+Created base GUI with tkinter
+
+Registration from GUI does not work, returns error 
+Connection error: 'utf-8' codec can't decode byte 0xaa in position 0: invalid start byte
+
+Idea to store messages in a dat file with tags
+Client will ask for the unread messages periodically, not ideal but easy to implement for now
+
