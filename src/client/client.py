@@ -102,52 +102,54 @@ if __name__ == "__main__":
             print(f"📮 Unread messages count: {len(unread_messages)}")
         else:
             print(f"📮 You have no unread messages!")
-        print("🌐 Menu: \n1. 📤 Send a message \n2. 📨 View messages \n3. 🚮 Delete messages \n4. 🚪 Logout")
-        choice = input("📝 Enter your choice (1, 2, 3, 4): ")
-        if choice not in ["1", "2", "3", "4"]:
+        print("🌐 Menu: \n1. 📤 Send a message \n2. 📨 View messages \n3. 🗑  Delete a message \n4. 📒 Delete account \n5. 🚪 Logout")
+        choice = input("📝 Enter your choice (1, 2, 3, 4, 5): ")
+        if choice not in ["1", "2", "3", "4", "5"]:
             print("❌ Invalid choice. Please try again.")
             continue
         # Process user choice
-        if choice == "4":
+        if choice == "5": # Logout
             request_logout(client_socket, username)
         else:
-            if choice == "1":
+            if choice == "1": # Send a message
                 get_users_response = request_list_users(client_socket, username)
                 users = get_users_response[1].strip().split('\n')
                 print("👥 Available users:")
                 for u in users: print(f"👤 {u}")
                 target_user  = input("👥 Enter the recipient's username: ").strip()
+                if not validate_length(target_user, LEN_UNAME, "Username"):
+                    continue
                 # Check if username exists
                 user_exists_response = request_check_user_exists(client_socket, target_user)
                 # Username does not exist
                 while user_exists_response[0] != RES_OK.strip('\x00'):
                     print("❌ User not found. Try again.")
                     target_user = input("👥 Enter the recipient's username: ").strip()
+                    if not validate_length(target_user, LEN_UNAME, "Username"):
+                        continue
                     user_exists_response = request_check_user_exists(client_socket, target_user)
                 # Username exists
                 request_get_profile(client_socket, target_user)
                 message = input("🖌  Enter your message: ").strip()
+                if not validate_length(message, LEN_MESSAGE, "Username"):
+                    continue
                 request_set_profile(client_socket, username, message, target_user)
                 print("📬 Message sent!")
                 continue
-            elif choice == "2":
-                if len(unread_messages) == 0:
-                    continue
+            elif choice == "2": # View messages
+                if len(unread_messages) == 0: continue
                 for unread in unread_messages: print(f"💬 {unread}")
                 request_update_profile(client_socket, username)
                 print("📭 All messages viewed!")
                 continue
-            else:
+            elif choice == "3": # Delete messages
                 if len(formatted_messages) == 0:
                     print("❌ You have no messages to delete.")
                     continue
                 for i, message in enumerate(formatted_messages):
-                    if message.startswith("[Unread]"):
-                        print(f"🔴 {i+1}. {message}")
-                    elif message.startswith("[Read]"):
-                        print(f"🟢 {i+1}. {message}")
-                    else:
-                        print(f"🔵 {i+1}. {message}")
+                    if message.startswith("[Unread]"): print(f"🔴 {i+1}. {message}")
+                    elif message.startswith("[Read]"): print(f"🟢 {i+1}. {message}")
+                    else: print(f"🔵 {i+1}. {message}")
                 delete_message = input("🔢 Enter the index of the message you want to delete: ").strip() 
                 if not delete_message.isdigit():
                     print("❌ Invalid index. Please enter a valid number.")
@@ -156,8 +158,12 @@ if __name__ == "__main__":
                     # Check if the index is within the valid range
                     if 1 <= delete_index <= len(formatted_messages):
                         request_delete_messages(client_socket, username, delete_index-1)
-                        print("🗑 Message deleted!")
+                        print("🗑  Message deleted!")
                     else:
                         print("❌ Invalid index. Please enter a number within the valid range.")
                 continue
+            else: # Delete Account
+                request_delete_profile(client_socket, username)
+                print("🚮 Account deleted. Exiting...")
+                request_logout(client_socket, username)
         break

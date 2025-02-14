@@ -93,43 +93,42 @@ def handle_client(client_socket, client_address, users):
                 handle_bye(client_socket, username)
                 break
             # Handle authentication commands
-            if cmd == REQ_CHE.strip('\x00'):  
+            if cmd == REQ_CHE.strip('\x00'): # Check existing user
                 print(f"🔍 Checking if user exists: {payload}")
                 handle_check_user_exists(client_socket, users, payload)
-            elif cmd == REQ_REG.strip('\x00'):
+            elif cmd == REQ_REG.strip('\x00'): # Register new user
                 username, password = payload.split("|")
                 print(f"📝 Registering user: {username}")
                 handle_reg(client_socket, users, username, password)
-            elif cmd == REQ_SAV.strip('\x00'):
+            elif cmd == REQ_LOG.strip('\x00'): # Login existing user
+                username, password = payload.split("|")
+                print(f"🔑 Logging in user: {username}")
+                login_success = handle_log(client_socket, users, username, password) 
+                if login_success == True: print("✅ User Login Success") 
+                else: print("❌ User Login failed.") 
+            elif cmd == REQ_SET.strip('\x00'): # Send receive message
+                username, message, target_user = payload.split("|")
+                handle_set(client_socket, users, username, message, target_user)
+            elif cmd == REQ_UPA.strip('\x00'): # Update message status
+                username = payload
+                handle_update(client_socket, users, username)
+            elif cmd == REQ_GET.strip('\x00'): # Get user all messages
+                username = payload
+                handle_get(client_socket, users, username)
+            elif cmd == REQ_DME.strip('\x00'): # Delete a message
+                username, message_id = payload.split("|")
+                handle_delemsg(client_socket, users, username, message_id) 
+            elif cmd == REQ_ALL.strip('\x00'): # Get all users
+                password = payload
+                handle_all(client_socket, users, username)
+            elif cmd == REQ_SAV.strip('\x00'): # Save user data
                 username = payload 
                 print(f"💾 Saving server data for {username}")
                 handle_sav(client_socket, users)
-            elif cmd == REQ_SET.strip('\x00'):
-                username, message, target_user = payload.split("|")
-                handle_set(client_socket, users, username, message, target_user)
-            elif cmd == REQ_GET.strip('\x00'):
+            elif cmd == REQ_DEL.strip('\x00'): # Delete user
                 username = payload
-                handle_get(client_socket, users, username)
-            elif cmd == REQ_UPA.strip('\x00'):
-                username = payload
-                handle_update(client_socket, users, username)
-            elif cmd == REQ_ALL.strip('\x00'):
-                password = payload
-                handle_all(client_socket, users, username)
-            elif cmd == REQ_DME.strip('\x00'):
-                username, message_id = payload.split("|")
-                handle_delemsg(client_socket, users, username, message_id)
-            elif cmd == REQ_LOG.strip('\x00'):
-                username, password = payload.split("|")
-                print(f"🔑 Logging in user: {username}")
-                login_success = handle_log(client_socket, users, username, password)
-                # Continue handling commands after successful login
-                if login_success == True:
-                    print("✅ User Login Success")
-                    continue
-                else:
-                    print("❌ User Login failed.")
-                    continue
+                print(f"🚫 Deleting user: {username}")
+                handle_delete(client_socket, users, username)
             else:
                 print("❌ Unknown command. Sending error response.")
     except Exception as e:   

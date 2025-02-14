@@ -11,8 +11,8 @@ import hashlib
 # Constants
 LEN_UNAME = 32                               # Max username length
 LEN_PASSWORD = 32                            # Max password length
+LEN_MESSAGE = 256                            # Max message length
 LEN_PASSHASH = hashlib.sha256().digest_size  # 32 bytes (SHA-256 hash)
-LEN_PROFILE_FILE = 1048576                   # 1MB max profile size
 
 # Request Codes (Sent by Client)
 REQ_CHE = "CHECK___"   # Check if username exists
@@ -26,6 +26,7 @@ REQ_GET = "GETPFILE"   # Get a user’s profile
 REQ_UPA = "UPDATE__"   # Update user profile
 REQ_ALL = "ALLUSERS"   # Get all registered users
 REQ_DME = "DELEMESG"   # Delete a message
+REQ_DEL = "DELEUSER"   # Delete a user
 
 # Response Codes (Sent by Server)
 RES_OK = "___OK___"                         # Success

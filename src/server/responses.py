@@ -49,15 +49,6 @@ def handle_log(client_socket, users, username, password):
         return True
     send_response(client_socket, RES_ERR_LOGIN, "❌ Invalid credentials.")
     return False
-    
-# Handle `REQ_CPW` – Change user password
-def handle_cpw(client_socket, users, username, old_password, new_password): 
-    if username not in users or not verify_password(users[username], old_password):
-        send_response(client_socket, RES_ERR_LOGIN, "❌ Incorrect password.")
-        return
-    # Update user password in the list
-    users[username] = hash_password_sha256(new_password)
-    send_response(client_socket, RES_OK, "✅ Password changed successfully.")
 
 # Handle `REQ_SET` – Save user data
 def handle_set(client_socket, users, username, message, target_user):
@@ -136,6 +127,19 @@ def handle_sav(client_socket, users):
     # Save all users to the file
     with open(USERS_FILE, "w") as f: json.dump(users, f)
     send_response(client_socket, RES_OK, "✅ User data saved successfully.")
+
+def handle_delete(client_socket, users, username):
+    if username not in users:
+        send_response(client_socket, RES_ERR_LOGIN, "❌ Authentication failed.")
+        return
+    # Remove user from the list
+    del users[username]
+    # Save all users to the file
+    with open(USERS_FILE, "w") as f: json.dump(users, f)
+    # Delete the user's message file
+    user_message_file = os.path.join(MESSAGES_DIR, f"{username}.dat")
+    os.remove(user_message_file)
+    send_response(client_socket, RES_OK, "✅ User deleted successfully.")
 
 # Handle `REQ_BYE` – Logout request
 def handle_bye(client_socket, username): 

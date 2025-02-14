@@ -36,24 +36,17 @@ def request_login(client_socket, username, password):
     response_cmd, response_payload, status = send_request(client_socket, REQ_LOG, f"{username}|{hashed_password}")
     return response_cmd, response_payload, status
 
-# Request to change password
-def request_change_password(client_socket, username, old_password, new_password): 
-    hashed_old_password = hash_password_sha256(old_password)
-    hashed_new_password = hash_password_sha256(new_password)
-    response_cmd, response_payload, status = send_request(client_socket, REQ_CPW, f"{username}|{hashed_old_password}|{hashed_new_password}")
-    return response_cmd, response_payload, status
-
-# Request to set user profile data
+# Request to send receiev a message
 def request_set_profile(client_socket, username, message, target_user): 
     response_cmd, response_payload, status = send_request(client_socket, REQ_SET, f"{username}|{message}|{target_user}")
     return response_cmd, response_payload, status
 
-# Request to update user profile data
+# Request to mark a message as read
 def request_update_profile(client_socket, username):
     response_cmd, response_payload, status = send_request(client_socket, REQ_UPA, username)
     return response_cmd, response_payload, status
 
-# Request to get a user's profile data
+# Request to get a user's message data
 def request_get_profile(client_socket, username): 
     response_cmd, response_payload, status = send_request(client_socket, REQ_GET, username)
     return response_cmd, response_payload, status
@@ -71,6 +64,10 @@ def request_list_users(client_socket, username):
 # Request to save the user database
 def request_save_users(client_socket, username): 
     response_cmd, response_payload, status = send_request(client_socket, REQ_SAV, username)  
+    return response_cmd, response_payload, status
+
+def request_delete_profile(client_socket, username):
+    response_cmd, response_payload, status = send_request(client_socket, REQ_DEL, username)
     return response_cmd, response_payload, status
 
 # Request to log out
