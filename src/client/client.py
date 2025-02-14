@@ -42,7 +42,7 @@ def authenticate(client_socket):
         # Check if username exists
         user_exists_response = request_check_user_exists(client_socket, username)
         # Username exists
-        if user_exists_response[0] == RES_OK.strip('\x00'): 
+        if user_exists_response[0] == RES_OK: 
             print("🔹 Username found. Proceeding to login...")
             while True:
                 # Prompt for password and check if password entered is valid
@@ -51,7 +51,7 @@ def authenticate(client_socket):
                 # Request login
                 login_response = request_login(client_socket, username, password)
                 # Login successful
-                if login_response[0] == RES_OK.strip('\x00'):
+                if login_response[0] == RES_OK:
                     print(f"🎉 Welcome, {username}!")
                     return username, password
                 # Login failed
@@ -70,10 +70,10 @@ def authenticate(client_socket):
                 # Request registration
                 register_response = request_register(client_socket, new_username, password)
                 # Registration successful
-                if register_response[0] == RES_OK.strip('\x00'):
+                if register_response[0] == RES_OK:
                     # Request to save user data
                     save_response = request_save_users(client_socket, new_username)
-                    if save_response[0] == RES_OK.strip('\x00'):
+                    if save_response[0] == RES_OK:
                         print(f"🎉 New account created for {new_username}! Please log in.")
                         username = new_username  # Set new username for login
                         break  # Proceed to login
@@ -133,7 +133,7 @@ if __name__ == "__main__":
                 # Check if username exists
                 user_exists_response = request_check_user_exists(client_socket, target_user)
                 # Username does not exist
-                while user_exists_response[0] != RES_OK.strip('\x00'):
+                while user_exists_response[0] != RES_OK:
                     print("❌ User not found. Try again.")
                     target_user = input("👥 Enter the recipient's username: ").strip()
                     if not validate_length(target_user, LEN_UNAME, "Username"): continue

@@ -15,21 +15,21 @@ LEN_MESSAGE = 256                            # Max message length
 LEN_PASSHASH = hashlib.sha256().digest_size  # 32 bytes (SHA-256 hash)
 
 # Request Codes (Sent by Client)
-REQ_CHE = "CHECK___"   # Check if username exists
-REQ_LOG = "LOGIN___"   # Login request
-REQ_REG = "REGISTER"   # Register new user
-REQ_BYE = "EXIT____"   # Close connection
-REQ_SAV = "PERSIST_"   # Force server to save data
-REQ_CPW = "CHANGEPW"   # Change password
-REQ_SET = "SETPFILE"   # Set user profile file
-REQ_GET = "GETPFILE"   # Get a user’s profile
-REQ_UPA = "UPDATE__"   # Update user profile
-REQ_ALL = "ALLUSERS"   # Get all registered users
-REQ_DME = "DELEMESG"   # Delete a message
-REQ_DEL = "DELEUSER"   # Delete a user
+REQ_CHE = b"CHECK___"   # Check if username exists
+REQ_LOG = b"LOGIN___"   # Login request
+REQ_REG = b"REGISTER"   # Register new user
+REQ_BYE = b"EXIT____"   # Close connection
+REQ_SAV = b"PERSIST_"   # Force server to save data
+REQ_CPW = b"CHANGEPW"   # Change password
+REQ_SET = b"SETPFILE"   # Set user profile file
+REQ_GET = b"GETPFILE"   # Get a user’s profile
+REQ_UPA = b"UPDATE__"   # Update user profile
+REQ_ALL = b"ALLUSERS"   # Get all registered users
+REQ_DME = b"DELEMESG"   # Delete a message
+REQ_DEL = b"DELEUSER"   # Delete a user
 
 # Response Codes (Sent by Server)
-RES_OK = "___OK___"                         # Success
+RES_OK = b"___OK___"                         # Success
 RES_ERR_USER_EXISTS = "ERR_USER_EXISTS"     # Username already exists
 RES_ERR_LOGIN = "ERR_LOGIN"                 # Invalid username or password
 RES_ERR_REQ_FMT = "ERR_REQ_FMT"             # Bad request format
@@ -110,7 +110,7 @@ def parse_packet(packet):
         print("❌ Checksum mismatch.")
         return None, None, "Checksum mismatch"
 
-    return command.decode(), payload.decode(), RES_OK
+    return command, payload.decode(), RES_OK
 
 # Validate the length of a string
 def validate_length(input_str, max_length, field_name):

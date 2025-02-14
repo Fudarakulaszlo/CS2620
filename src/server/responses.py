@@ -27,20 +27,23 @@ def send_response(client_socket, status, payload=""):
 def handle_check_user_exists(client_socket, users, username):
     if username in users:
         send_response(client_socket, RES_OK, "✅ Username exists.")
+        return True
     else:
         send_response(client_socket, RES_ERR_NO_USER, "❌ Username not found.")
+        return False
 
 # Handle `REQ_REG` – Register a new user
 def handle_reg(client_socket, users, username, password): 
     if username in users: # Username already exists
         send_response(client_socket, RES_ERR_USER_EXISTS, "❌ Username already exists.")
-        return
+        return False
     # Append new user to the list
     users[username] = hash_password_sha256(password)
     user_message_file = os.path.join(MESSAGES_DIR, f"{username}.dat")
     # Create a new message file for the user
     with open(user_message_file, "w") as f: f.write("")
     send_response(client_socket, RES_OK, "✅ Registration successful.")
+    return True
 
 # Handle `REQ_LOG` – Login request
 def handle_log(client_socket, users, username, password): 

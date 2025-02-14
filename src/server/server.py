@@ -84,53 +84,57 @@ def handle_client(client_socket, client_address, users):
             cmd, payload, status = parse_packet(request)
             print(f"📩 Parsed Command: {cmd}, Payload: {payload}, Status: {status}")
 
-            if status != RES_OK.strip('\x00'):
+            if status != RES_OK:
                 print("❌ Error parsing packet. Sending error response.")
                 client_socket.sendall(create_packet(RES_ERR_REQ_FMT, "Invalid request format."))
                 continue
             
-            if cmd == REQ_BYE.strip('\x00'):
+            if cmd == REQ_BYE:
                 handle_bye(client_socket, username)
                 break
             # Handle authentication commands
-            if cmd == REQ_CHE.strip('\x00'): # Check existing user
+            if cmd == REQ_CHE: # Check existing user
                 print(f"🔍 Checking if user exists: {payload}")
-                handle_check_user_exists(client_socket, users, payload)
-            elif cmd == REQ_REG.strip('\x00'): # Register new user
+                user_exist = handle_check_user_exists(client_socket, users, payload)
+                if user_exist: print(f"✅ User {payload} exists.")
+                else: print(f"❌ User {payload} does not exist.")
+            elif cmd == REQ_REG: # Register new user
                 username, password = payload.split("|")
                 print(f"📝 Registering user: {username}")
-                handle_reg(client_socket, users, username, password)
-            elif cmd == REQ_LOG.strip('\x00'): # Login existing user
+                reg_success = handle_reg(client_socket, users, username, password)
+                if reg_success: print(f"✅ User {username} registered successfully.")
+                else: print(f"❌ Error registering user {username}.")
+            elif cmd == REQ_LOG: # Login existing user
                 username, password = payload.split("|")
                 print(f"🔑 Logging in user: {username}")
                 login_success = handle_log(client_socket, users, username, password) 
                 if login_success == True: print("✅ User Login Success") 
                 else: print("❌ User Login failed.") 
-            elif cmd == REQ_SET.strip('\x00'): # Send receive message
+            elif cmd == REQ_SET: # Send receive message
                 username, message, target_user = payload.split("|")
                 handle_set(client_socket, users, username, message, target_user)
-            elif cmd == REQ_UPA.strip('\x00'): # Update message status
+            elif cmd == REQ_UPA: # Update message status
                 username = payload
                 handle_update(client_socket, users, username)
-            elif cmd == REQ_GET.strip('\x00'): # Get user all messages
+            elif cmd == REQ_GET: # Get user all messages
                 username = payload
                 handle_get(client_socket, users, username)
-            elif cmd == REQ_DME.strip('\x00'): # Delete a message
+            elif cmd == REQ_DME: # Delete a message
                 username, message_id = payload.split("|")
                 handle_delemsg(client_socket, users, username, message_id) 
-            elif cmd == REQ_ALL.strip('\x00'): # Get all users
+            elif cmd == REQ_ALL: # Get all users
                 password = payload
                 handle_all(client_socket, users, username)
-            elif cmd == REQ_SAV.strip('\x00'): # Save user data
+            elif cmd == REQ_SAV: # Save user data
                 username = payload 
                 print(f"💾 Saving server data for {username}")
                 handle_sav(client_socket, users)
-            elif cmd == REQ_DEL.strip('\x00'): # Delete user
+            elif cmd == REQ_DEL: # Delete user
                 username = payload
                 print(f"🚫 Deleting user: {username}")
                 handle_delete(client_socket, users, username)
             else: # Unknown command
-                print("❌ Unknown command. Sending error response.")
+                print(f"❌ Unknown command {cmd}. Sending error response.")
     except Exception as e:   
         print(f"❌ Error handling {client_address}: {e}")
 
