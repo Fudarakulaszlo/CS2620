@@ -12,12 +12,31 @@ src/
   │       └── response.py
   ├── common/
   │       ├── protocols.py
+  │       └── json_protocol.py
   │       └── messages/
   └── GUI/ 
         └── gui.py
 
 
 
+```
+
+## Flags to set
+
+Set the flags in the file `common/protocols.py` to `True` to enable the JSON protocol or timer.
+
+```
+common/protocol.py
+
+...
+
+# JSON mode flag
+USE_JSON = True
+
+# TIME flag
+CHE_TIME = True
+
+...
 ```
 
 ## Testing the Code
