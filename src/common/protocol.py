@@ -25,6 +25,7 @@ REQ_SET = "SETPFILE"   # Set user profile file
 REQ_GET = "GETPFILE"   # Get a user’s profile
 REQ_UPA = "UPDATE__"   # Update user profile
 REQ_ALL = "ALLUSERS"   # Get all registered users
+REQ_DME = "DELEMESG"   # Delete a message
 
 # Response Codes (Sent by Server)
 RES_OK = "___OK___"                         # Success
@@ -34,8 +35,7 @@ RES_ERR_REQ_FMT = "ERR_REQ_FMT"             # Bad request format
 RES_ERR_NO_DATA = "ERR_NO_DATA"             # No data found
 RES_ERR_NO_USER = "ERR_NO_USER"             # Requested user not found
 RES_ERR_INV_CMD = "ERR_INVALID_COMMAND"     # Invalid command
-RES_ERR_XMIT = "ERR_XMIT"                   # Transmission error
-RES_ERR_CRYPTO = "ERR_CRYPTO"               # Decryption error
+RES_ERR_XMIT = "ERR_XMIT"                   # Transmission error 
 RES_ERR_SERVER = "ERR_SERVER"               # Internal server error
 RES_ERR_UNIMPLEMENTED = "ERR_UNIMPLEMENTED" # Feature not implemented
 

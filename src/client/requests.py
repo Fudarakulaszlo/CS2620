@@ -48,13 +48,19 @@ def request_set_profile(client_socket, username, message, target_user):
     response_cmd, response_payload, status = send_request(client_socket, REQ_SET, f"{username}|{message}|{target_user}")
     return response_cmd, response_payload, status
 
+# Request to update user profile data
+def request_update_profile(client_socket, username):
+    response_cmd, response_payload, status = send_request(client_socket, REQ_UPA, username)
+    return response_cmd, response_payload, status
+
 # Request to get a user's profile data
 def request_get_profile(client_socket, username): 
     response_cmd, response_payload, status = send_request(client_socket, REQ_GET, username)
     return response_cmd, response_payload, status
 
-def request_update_profile(client_socket, username):
-    response_cmd, response_payload, status = send_request(client_socket, REQ_UPA, username)
+# Request to delete a message
+def request_delete_messages(client_socket, username, message_id):
+    response_cmd, response_payload, status = send_request(client_socket, REQ_DME, f"{username}|{message_id}")
     return response_cmd, response_payload, status
 
 # Request to list all users
@@ -62,13 +68,12 @@ def request_list_users(client_socket, username):
     response_cmd, response_payload, status = send_request(client_socket, REQ_ALL, username)
     return response_cmd, response_payload, status
 
+# Request to save the user database
+def request_save_users(client_socket, username): 
+    response_cmd, response_payload, status = send_request(client_socket, REQ_SAV, username)  
+    return response_cmd, response_payload, status
+
 # Request to log out
 def request_logout(client_socket, username): 
     response_cmd, response_payload, status = send_request(client_socket, REQ_BYE, username)
-    return response_cmd, response_payload, status
-
-# Request to save the user database
-def request_save_users(client_socket, username, password): 
-    hashed_password = hash_password_sha256(password)
-    response_cmd, response_payload, status = send_request(client_socket, REQ_SAV, f"{username}|{hashed_password}")  
     return response_cmd, response_payload, status

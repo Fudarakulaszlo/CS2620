@@ -10,13 +10,12 @@ import argparse
 import os
 import sys
 import json 
+import threading
 
 # Add the parent directory to the module search path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.protocol import *
 from responses import *
-
-USER_FILE = "users.dat"  # File to store user credentials
 
 # Server Argument Structure  
 class ServerArgs:  
@@ -35,7 +34,6 @@ def parse_args():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-p", type=int, help="Port number")
     parser.add_argument("-h", action="store_true", help="Print help message")
-
     args = parser.parse_args()
     server_args = ServerArgs()
     if args.h: server_args.usage = True
@@ -44,23 +42,29 @@ def parse_args():
 
 # Load stored usernames & passwords
 def load_users():
-    if not os.path.exists(USER_FILE):
-        print("❗ No user file found. Creating `users.dat` with a default user...")
-        users = {"kakali121": hash_password_sha256("Yunlei1207~")}
-        with open(USER_FILE, "w") as f: json.dump(users, f)
-    else:
+    if not os.path.exists(USERS_FILE): 
+        print("❗ No user found. Creating a default user.")
+        hash_psw = hash_password_sha256("Yunlei1207~")
+        users = {"kakali121": hash_psw}
+        # Save one user to file
+        with open(USERS_FILE, "w") as f: json.dump(users, f)
+        # Create a message file for the user
+        user_message_file = os.path.join(MESSAGES_DIR, "kakali121.dat")
+        # Create a new message file for the user
+        with open(user_message_file, "w") as f: f.write("")
+    else: # Load existing users
         try:
-            with open(USER_FILE, "r") as f:
-                users = json.load(f)
+            with open(USERS_FILE, "r") as f: users = json.load(f)
         except json.JSONDecodeError:
             print("❗ Error reading user file, resetting it.")
-            users = {"kakali121": hash_password_sha256("Yunlei1207~")}
-            with open(USER_FILE, "w") as f: json.dump(users, f)
+            hash_psw = hash_password_sha256("Yunlei1207~")
+            users = {"kakali121": hash_psw}
+            with open(USERS_FILE, "w") as f: json.dump(users, f)
+            # Create a message file for the user
+            user_message_file = os.path.join(MESSAGES_DIR, "kakali121.dat")
+            # Create a new message file for the user
+            with open(user_message_file, "w") as f: f.write("")
     return users
-
-# Verify a hashed password
-def verify_password(stored_password, entered_password): 
-    return stored_password == hash_password_sha256(entered_password)
 
 # Handle client connections
 def handle_client(client_socket, client_address, users):
@@ -97,22 +101,25 @@ def handle_client(client_socket, client_address, users):
                 print(f"📝 Registering user: {username}")
                 handle_reg(client_socket, users, username, password)
             elif cmd == REQ_SAV.strip('\x00'):
-                print("💾 Saving server data...")
+                username = payload 
+                print(f"💾 Saving server data for {username}")
                 handle_sav(client_socket, users)
             elif cmd == REQ_SET.strip('\x00'):
                 username, message, target_user = payload.split("|")
                 handle_set(client_socket, users, username, message, target_user)
             elif cmd == REQ_GET.strip('\x00'):
                 username = payload
-                handle_get(client_socket, users, username,)
+                handle_get(client_socket, users, username)
             elif cmd == REQ_UPA.strip('\x00'):
                 username = payload
                 handle_update(client_socket, users, username)
             elif cmd == REQ_ALL.strip('\x00'):
                 password = payload
                 handle_all(client_socket, users, username)
+            elif cmd == REQ_DME.strip('\x00'):
+                username, message_id = payload.split("|")
+                handle_delemsg(client_socket, users, username, message_id)
             elif cmd == REQ_LOG.strip('\x00'):
-                print("Inside Login")
                 username, password = payload.split("|")
                 print(f"🔑 Logging in user: {username}")
                 login_success = handle_log(client_socket, users, username, password)
@@ -120,23 +127,14 @@ def handle_client(client_socket, client_address, users):
                 if login_success == True:
                     print("✅ User Login Success")
                     continue
-                    # if cmd == REQ_CPW.strip('\x00'):
-                    #     old_password, new_password = payload.split("|")
-                    #     handle_cpw(client_socket, users, username, old_password, new_password)
-                    # elif cmd == REQ_SET.strip('\x00'):
-                    #     username, message, target_user = payload.split("|")
-                    #     handle_set(client_socket, users, username, message, target_user)
-                    # elif cmd == REQ_GET.strip('\x00'):
-                    #     username = payload
-                    #     handle_get(client_socket, users, username,)
-                    # elif cmd == REQ_ALL.strip('\x00'):
-                    #     password = payload
-                    #     handle_all(client_socket, users, username, password)
                 else:
                     print("❌ User Login failed.")
                     continue
+            else:
+                print("❌ Unknown command. Sending error response.")
     except Exception as e:   
         print(f"❌ Error handling {client_address}: {e}")
+
     finally: 
         print(f"🔻 Client {client_address} disconnected")
         client_socket.close()  # Close the client socket
@@ -146,23 +144,19 @@ def handle_client(client_socket, client_address, users):
 def start_server(args): 
     users = load_users()
     print(f"🔐 User database loaded. {len(users)} users found.")
-
     # Create server socket
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind(("0.0.0.0", args.port))
     server_socket.listen(25)
     print(f"🚀 Server listening on port {args.port}...")
-
     try:
         while True:
             print("⌛ Waiting for a client to connect...")
             client_socket, client_address = server_socket.accept()
-            handle_client(client_socket, client_address, users)
-
+            threading.Thread(target=handle_client, args=(client_socket, client_address, users), daemon=True).start()
     except KeyboardInterrupt:
         print("\n🛑 Server shutting down.")
-
     finally:
         server_socket.close()
 
