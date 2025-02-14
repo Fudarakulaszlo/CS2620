@@ -1,14 +1,8 @@
 """
-* File: client_gui.py
-* Author: Áron Vékássy, Karen Li (adapted to GUI by you)
+* File: gui.py
+* Author: Áron Vékássy, Karen Li
 *
 * This file contains a Tkinter-based GUI client for the chat application.
-* In this version:
-*  - After login, a landing page displays a list of conversation partners with unread counts.
-*  - The landing page also includes Logout and Delete Account buttons.
-*  - Additionally, there is a "Start New Chat" section that lets you select a recipient and start a chat.
-*  - Double-clicking an entry in the list opens that conversation in the chat view.
-*  - The send message area is integrated in the chat view.
 """
 
 import socket

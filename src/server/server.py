@@ -15,7 +15,7 @@ import threading
 # Add the parent directory to the module search path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.protocol import *
-from responses import *
+from server.responses import *
 
 # Server Argument Structure  
 class ServerArgs:  

@@ -59,3 +59,8 @@ OR test the client from a terminal:
 ```
 python client/client.py
 ```
+
+Additionally you can run the unit tests for the modules by running:
+```
+python tests/run_all_tests.py
+```
