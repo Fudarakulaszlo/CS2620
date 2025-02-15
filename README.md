@@ -64,3 +64,5 @@ Additionally you can run the unit tests for the modules by running:
 ```
 python tests/run_all_tests.py
 ```
+
+After running it, when it seems to be stuck, put a keyboard interrupt to stop the server, we couldn't get around it for now, but the tests run properly.
