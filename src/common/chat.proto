@@ -4,9 +4,14 @@ service ChatService {
     rpc CheckUserExists (UsernameRequest) returns (UserExistsResponse);
     rpc RegisterUser (RegisterRequest) returns (Response);
     rpc LoginUser (LoginRequest) returns (Response);
+    rpc LogoutUser (UsernameRequest) returns (Response);  
     rpc SendMessage (MessageRequest) returns (Response);
+    rpc EditMessage (EditMessageRequest) returns (Response);  
     rpc GetMessages (UsernameRequest) returns (MessagesResponse);
+    rpc GetUnreadMessages (UsernameRequest) returns (MessagesResponse);  
+    rpc MarkMessagesRead (UsernameRequest) returns (Response);  
     rpc DeleteMessage (DeleteMessageRequest) returns (Response);
+    rpc DeleteUser (UsernameRequest) returns (Response);  
     rpc ListUsers (EmptyRequest) returns (UserListResponse);
     rpc SaveData (EmptyRequest) returns (Response);
 }
@@ -35,6 +40,12 @@ message MessageRequest {
     string sender = 1;
     string recipient = 2;
     string message = 3;
+}
+
+message EditMessageRequest {
+    string username = 1;
+    int32 message_id = 2;
+    string new_message = 3;
 }
 
 message MessagesResponse {
