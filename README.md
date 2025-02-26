@@ -6,23 +6,53 @@
 src/
   ├── client/
   │       ├── client.py
-  │       └── request.py
+  │       ├── request.py
+  │       └── client_rpc.py
   ├── server/
   │       ├── server.py
-  │       └── response.py
+  │       ├── response.py
+  │       └── server_rpc.py
   ├── common/
   │       ├── protocols.py
   │       ├── json_protocol.py
+  │       ├── chat_pb2_grpc.py
+  │       ├── chat_pb2.py
+  │       ├── chat.proto
   │       ├── messages/
-  │       └── user.dat
-  └── GUI/ 
-        └── gui.py
-
+  │       ├── user.dat
+  │       └── user.json
+  ├── GUI/ 
+  │       └── gui.py
+  └── tests/
+          ├── gui_tests.py
+          ├── protocol_tests.py
+          ├── request_tests.py
+          ├── responses_tests.py
+          ├── run_all_tests.py
+          └── server_tests.py
 
 
 ```
 
-## Flags to set
+
+## Testing the Code - FOR RPC (HW2) ONLY
+
+To test the code, be sure to be in the right directory:
+```
+cd CS2620/src
+```
+To run the server, you can run the following commands in your terminal:
+```
+python server/server_rpc.py
+```
+
+In a separate terminal, you can run the following commands to test the client:
+```
+python client/client_rpc.py
+```
+
+
+## Flags to set - FOR WIRE PROTOCOL (HW1) ONLY
 
 Set the flags in the file `common/protocols.py` to `True` to enable the JSON protocol or timer.
 
@@ -40,7 +70,8 @@ CHE_TIME = True
 ...
 ```
 
-## Testing the Code
+## Testing the Code - FOR WIRE PROTOCOL (HW1) ONLY
+
 To test the code, be sure to be in the right directory:
 ```
 cd CS2620/src
