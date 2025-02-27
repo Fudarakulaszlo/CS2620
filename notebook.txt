@@ -15,3 +15,16 @@ Idea to store messages in a dat file with tags
 Client will ask for the unread messages periodically, not ideal but easy to implement for now
 
 JSON can't handle bytes, need to update some of the methods to handle JSON as well
+
+For grpc, we need to change our client and server since they are reliant on the socket structure
+
+At such a small scale it is probably the same difficulty as the custom protocol or JSON, but since grpc
+is standardized, it is probably easier to work with on a larger scale
+
+It should have smaller message sizes compared to JSON since it is serialized, but still larger than our custom protocol
+
+Now the client uses generated code and instead of the sockets uses stubs, so the connection is basically happening through API calls
+
+Testing also has to change, since we are no longer testing the sockets but using the stubs, this seems easier to do
+
+Actually writing the client and server might have been even a bit easier than before
