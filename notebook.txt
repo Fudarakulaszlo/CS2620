@@ -1,5 +1,7 @@
 ## Notes
 
+Code at https://github.com/Fudarakulaszlo/CS2620
+
 Set up socket as seen in class
 
 Wire protocol should have one byte as command and then the message
