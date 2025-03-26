@@ -13,6 +13,9 @@ import sys
 import json
 import threading
 
+dynamic_replicas = []  # New replicas added at runtime
+replica_lock = threading.Lock()
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.protocol import *
 from responses import *
@@ -52,7 +55,8 @@ def load_users():
 # Replicate write operations to followers
 def replicate_to_followers(payload, command, replicas):
     ack_count = 0
-    for replica in replicas:
+    all_replicas = replicas + dynamic_replicas
+    for replica in all_replicas:
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.connect((replica['host'], replica['port']))
@@ -84,7 +88,18 @@ def handle_client(client_socket, client_address, users, replicas, log_path):
                 print("❌ Error parsing packet. Sending error response.")
                 client_socket.sendall(create_packet(RES_ERR_REQ_FMT, "Invalid request."))
                 continue
-
+            if cmd == REQ_JOI:
+                try:
+                    ip, port = payload.split(":")
+                    new_replica = {"host": ip, "port": int(port)}
+                    with replica_lock:
+                        if new_replica not in dynamic_replicas:
+                            dynamic_replicas.append(new_replica)
+                    print(f"➕ Added new replica: {new_replica}")
+                    client_socket.sendall(create_packet(RES_OK, "Replica added."))
+                except:
+                    client_socket.sendall(create_packet(RES_ERR_REQ_FMT, "Invalid join request."))
+                return
             if cmd == REQ_BYE:
                 handle_bye(client_socket, payload)
                 break

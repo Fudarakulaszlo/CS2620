@@ -1,8 +1,13 @@
 import os
 import json
 
-def append_to_log(log_path, cmd, payload):
-    entry = {"cmd": cmd.decode() if isinstance(cmd, bytes) else cmd, "payload": payload}
+def append_to_log(log_path, cmd, payload, replica_id=None):
+    entry = {
+        "cmd": cmd.decode() if isinstance(cmd, bytes) else cmd,
+        "payload": payload,
+    }
+    if replica_id:
+        entry["replica"] = replica_id
     with open(log_path, "a") as f:
         f.write(json.dumps(entry) + "\n")
 

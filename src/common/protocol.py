@@ -33,6 +33,7 @@ REQ_UPA = b"UPDATE__"   # Update user profile
 REQ_ALL = b"ALLUSERS"   # Get all registered users
 REQ_DME = b"DELEMESG"   # Delete a message
 REQ_DEL = b"DELEUSER"   # Delete a user
+REQ_JOI = b"JOINFOLL"   # Join a follower
 
 # Response Codes (Sent by Server)
 RES_OK = b"___OK___"                        # Success

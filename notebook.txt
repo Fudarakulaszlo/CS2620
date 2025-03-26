@@ -29,3 +29,10 @@ Each restarted follower replays its log and catches up. No central state or shar
 This should be a distributed chat system that’s fully persistent, 2-fault tolerant, and has no shared storage. 
 It can be deployed across multiple machines or run locally for testing. 
 Logs ensure message durability, and quorum-based replication ensures consistency.
+
+EXTRA
+Join dynamically
+python3 server/follower.py 9994
+python3 server/join.py
+We then send a message
+It shows up in the log!

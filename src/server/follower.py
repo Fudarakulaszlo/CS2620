@@ -10,7 +10,7 @@ from common.protocol import *
 from responses import *
 from log_util import append_to_log, replay_log
 
-LOG_PATH = "common/logs/follower.log"
+LOG_PATH = f"common/logs/follower.log"
 
 # Load stored usernames & passwords
 def load_users():
@@ -58,6 +58,10 @@ def handle_replication(conn, users):
         elif cmd == REQ_DEL:
             username = payload
             handle_delete(conn, users, username)
+        elif cmd == REQ_JOI:
+            # Just acknowledge that the follower is alive and joinable
+            conn.sendall(create_packet(RES_OK, "✅ Ready to join replication."))
+            return
         else:
             conn.sendall(create_packet(RES_ERR_UNIMPLEMENTED, "Unsupported replicated command."))
             return
@@ -70,6 +74,7 @@ def handle_replication(conn, users):
         conn.close()
 
 def start_follower(port):
+    LOG_PATH = "common/logs/follower_{port}.log"
     users = load_users()
 
     # Replay existing log to rebuild state
