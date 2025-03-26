@@ -97,16 +97,18 @@ if __name__ == "__main__":
         formatted_messages, unread_messages = [], []
         # If there are messages
         if get_profile_response[1] != "":
-            messages = get_profile_response[1].strip().split('\n')
-            for message in messages:
-                status, content, sender = message.split(',')
-                formatted_message = f"[{status.capitalize()}] {sender}: {content}"
-                formatted_messages.append(formatted_message)
-                if status.upper() == "UNREAD": unread_messages.append(formatted_message)
-            print(f"📮 Unread messages count: {len(unread_messages)}")
-        # No messages
-        else:
-            print(f"📮 You have no unread messages!")
+            payload = get_profile_response[1]
+            if not payload: # No messages
+                messages = []
+                print(f"📮 You have no unread messages!")
+            else: # Parse messages
+                messages = payload.strip().split('\n') 
+                for message in messages: 
+                    status, content, sender = message.split(',')
+                    formatted_message = f"[{status.capitalize()}] {sender}: {content}"
+                    formatted_messages.append(formatted_message)
+                    if status.upper() == "UNREAD": unread_messages.append(formatted_message)
+                print(f"📮 Unread messages count: {len(unread_messages)}")
 
         # Display menu
         print("\n🌐 Menu: \n1. 📤 Send a message \n2. 📨 View messages \n3. 🗑  Delete a message \n4. 📒 Delete account \n5. 🚪 Logout")

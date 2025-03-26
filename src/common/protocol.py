@@ -9,10 +9,10 @@ import struct
 import hashlib
 
 # JSON mode flag
-USE_JSON = True
+USE_JSON = False
 
 # TIME flag
-CHE_TIME = True
+CHE_TIME = False
 
 # Constants
 LEN_UNAME = 32                               # Max username length
@@ -35,7 +35,7 @@ REQ_DME = b"DELEMESG"   # Delete a message
 REQ_DEL = b"DELEUSER"   # Delete a user
 
 # Response Codes (Sent by Server)
-RES_OK = b"___OK___"                         # Success
+RES_OK = b"___OK___"                        # Success
 RES_ERR_USER_EXISTS = "ERR_USER_EXISTS"     # Username already exists
 RES_ERR_LOGIN = "ERR_LOGIN"                 # Invalid username or password
 RES_ERR_REQ_FMT = "ERR_REQ_FMT"             # Bad request format
@@ -84,14 +84,14 @@ def create_packet(command, payload):
 
 # Parse a received packet
 def parse_packet(packet):
-    if len(packet) < HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + 1:
-        print(f"❌ Packet too short: Expected at least {HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + 1} bytes, got {len(packet)}")
-        return None, None, "Invalid packet length"
+    # if len(packet) < HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + 1:
+    #     print(f"❌ Packet too short: Expected at least {HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + 1} bytes, got {len(packet)}")
+    #     return None, None, "Invalid packet length"
 
-    header = packet[:HEADER_SIZE]
-    if header != b'\xAA\xBB':
-        print("❌ Invalid header detected.")
-        return None, None, "Invalid header"
+    # header = packet[:HEADER_SIZE]
+    # if header != b'\xAA\xBB':
+    #     print("❌ Invalid header detected.")
+    #     return None, None, "Invalid header"
 
     # Extract and clean up command
     command = packet[HEADER_SIZE:HEADER_SIZE + CMD_SIZE].rstrip(b'\x00')  # Remove padding
@@ -104,17 +104,17 @@ def parse_packet(packet):
 
     # print(f"🛠  Parsed Command: {command}, Payload Length: {payload_len}")  # Debugging print
 
-    if len(packet) < HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len + 1:
-        print(f"❌ Truncated packet: Expected {HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len + 1}, got {len(packet)}")
-        return None, None, "Truncated packet"
+    # if len(packet) < HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len + 1:
+    #     print(f"❌ Truncated packet: Expected {HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len + 1}, got {len(packet)}")
+    #     return None, None, "Truncated packet"
 
     payload = packet[HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE:HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len]
-    checksum = packet[HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len]
+    # checksum = packet[HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len]
 
-    # Verify checksum
-    if checksum != compute_checksum(payload)[0]:
-        print("❌ Checksum mismatch.")
-        return None, None, "Checksum mismatch"
+    # # Verify checksum
+    # if checksum != compute_checksum(payload)[0]:
+    #     print("❌ Checksum mismatch.")
+    #     return None, None, "Checksum mismatch"
 
     return command, payload.decode(), RES_OK
 

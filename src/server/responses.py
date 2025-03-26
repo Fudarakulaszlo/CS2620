@@ -62,18 +62,36 @@ def handle_log(client_socket, users, username, password):
 # Handle `REQ_SET` – Save user data
 def handle_set(client_socket, users, username, message, target_user):
     if username not in users or target_user not in users:
-        send_response(client_socket, RES_ERR_LOGIN, "❌ Authentication failed.")
+        if client_socket:
+            send_response(client_socket, RES_ERR_LOGIN, "❌ Authentication failed.")
         return
-    # Get the message file for the users
+
     user_message_file = os.path.join(MESSAGES_DIR, f"{username}.dat")
     target_message_file = os.path.join(MESSAGES_DIR, f"{target_user}.dat")
-    # Append sent message to sender's file
-    with open(user_message_file, "a") as f:
-        f.write(f"SENT, {message}, {target_user}\n")
-    # Append unread message to recipient's file
-    with open(target_message_file, "a") as f:
-        f.write(f"UNREAD, {message}, {username}\n")
-    send_response(client_socket, RES_OK, "✅ Message updated successfully.")
+
+    entry_sender = f"SENT, {message}, {target_user}"
+    entry_receiver = f"UNREAD, {message}, {username}"
+
+    # Avoid duplicates — read current messages
+    sender_lines = []
+    receiver_lines = []
+    if os.path.exists(user_message_file):
+        with open(user_message_file, "r") as f:
+            sender_lines = f.read().splitlines()
+    if os.path.exists(target_message_file):
+        with open(target_message_file, "r") as f:
+            receiver_lines = f.read().splitlines()
+
+    # Only append if not already in file
+    if entry_sender not in sender_lines:
+        with open(user_message_file, "a") as f:
+            f.write(entry_sender + "\n")
+    if entry_receiver not in receiver_lines:
+        with open(target_message_file, "a") as f:
+            f.write(entry_receiver + "\n")
+
+    if client_socket:
+        send_response(client_socket, RES_OK, "✅ Message updated successfully.")
 
 # Handle `REQ_UPA` – Update user data
 def handle_update(client_socket, users, username):
@@ -96,12 +114,24 @@ def handle_get(client_socket, users, username):
     if username not in users:
         send_response(client_socket, RES_ERR_LOGIN, "❌ Authentication failed.")
         return
-    # Get the message file for the users
+
     user_message_file = os.path.join(MESSAGES_DIR, f"{username}.dat")
-    # Load all messages
-    with open(user_message_file, "r") as f:
-        _data = f.read()
-    send_response(client_socket, RES_OK, _data)
+
+    try:
+        with open(user_message_file, "r") as f:
+            lines = f.readlines()
+        # Deduplicate while preserving order
+        seen = set()
+        unique_lines = []
+        for line in lines:
+            clean = line.strip()
+            if clean not in seen:
+                seen.add(clean)
+                unique_lines.append(clean)
+        response_data = "\n".join(unique_lines)
+        send_response(client_socket, RES_OK, response_data)
+    except FileNotFoundError:
+        send_response(client_socket, RES_ERR_NO_DATA, "❌ No message data found.")
 
 # Handle `REQ_DME` – Delete a message
 def handle_delemsg(client_socket, users, username, message_id):
