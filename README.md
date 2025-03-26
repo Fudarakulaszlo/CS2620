@@ -1,4 +1,4 @@
-# Homework 1 - CS2620
+# Homework 4 - CS2620
 
 ## Project Directory Structure
 
@@ -8,61 +8,75 @@ src/
   │       ├── client.py
   │       └── request.py
   ├── server/
-  │       ├── server.py
-  │       └── response.py
-  ├── common/
-  │       ├── protocols.py
-  │       ├── json_protocol.py
-  │       ├── messages/
-  │       └── user.dat
-  └── GUI/ 
-        └── gui.py
-
-
-
+  │       ├── leader.py
+  │       ├── follower.py
+  │       ├── log_util.py
+  │       ├── responses.py
+  │       └── config.json
+  └── common/
+          ├── protocols.py
+          ├── json_protocol.py
+          ├── logs/
+          │     ├── follower.log
+          │     └── leader.log
+          ├── messages/
+          │     ├── <USERNAME>.dat
+          │     └── ...
+          └── user.dat
 ```
 
-## Flags to set
-
-Set the flags in the file `common/protocols.py` to `True` to enable the JSON protocol or timer.
-
+## System Architecture
 ```
-common/protocol.py
+[Client] <--> [Leader Server] <---> [Follower 1]
+                              <---> [Follower 2]
+                              <---> [Follower 3]
+```
 
-...
-
-# JSON mode flag
-USE_JSON = True
-
-# TIME flag
-CHE_TIME = True
-
-...
+## Configuration File (server/config.json)
+Edit this file to change replica addresses or add a real LAN IP.
+```
+{
+  "port": 9999,
+  "log": "common/logs/leader.log",
+  "replicas": [
+    { "host": "127.0.0.1", "port": 9991 },
+    { "host": "127.0.0.1", "port": 9992 },
+    { "host": "127.0.0.1", "port": 9993 }
+  ]
+}
 ```
 
 ## Testing the Code
-To test the code, be sure to be in the right directory:
+To test the code, be sure to be in the right directory for ALL terminals:
 ```
 cd CS2620/src
 ```
-To run the server, you can run the following commands in your terminal:
+### Step 1: Start Follower Servers
+
+Open 3 terminals:
 ```
-python server/server.py -p 9999
+python3 server/follower.py 9991
+```
+```
+python3 server/follower.py 9992
+```
+```
+python3 server/follower.py 9993
 ```
 
-In a separate terminal, you can run the following commands to test the client with GUI:
+### Step 2: Start the Leader Server
+In a new terminal
 ```
-python GUI/gui.py
-```
-
-OR test the client from a terminal:
-```
-python client/client.py
+python3 server/leader.py --config server/config.json
 ```
 
-Additionally you can run the unit tests for the modules by running:
+### Step 3: Start the Client
+In another new terminal
 ```
-python tests/run_all_tests.py
+python3 client/client.py
 ```
 
-After running it, when it seems to be stuck, put a keyboard interrupt to stop the server, we couldn't get around it for now, but the tests run properly.
+### Check Local Logs
+```
+tail -f common/logs/leader.log
+```

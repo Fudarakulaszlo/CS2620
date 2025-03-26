@@ -1,17 +1,31 @@
 ## Notes
+ 
+- Persistence
+- 2-Fault Tolerance
+- Multi-machine readiness (simulated if needed)
+- No shared storage
+- Bonus: Log inspection & system recovery
 
-Set up socket as seen in class
+For 2-fault tolerance, we should have 3 followers on different ports.
+Each follower is an independent replica with its own persistent storage and message logs. There is no shared store.
 
-Wire protocol should have one byte as command and then the message
+The leader coordinates replication. Every write is sent to all replicas, and only committed after a quorum confirms it.
+Messages are persisted locally and replicated to at least two followers before being confirmed.
 
-Store password hashed with SHA256
+Stop the leader (Ctrl+C), restart server
+    - Leader is restarted, but followers are still running.
 
-Created base GUI with tkinter
+Reconnect with the client as bob
+Check the inbox — the message from alice should still be there
 
-Registration from GUI does not work, returns error 
-Connection error: 'utf-8' codec can't decode byte 0xaa in position 0: invalid start byte
+All user and message data persisted through a crash using local log replay
 
-Idea to store messages in a dat file with tags
-Client will ask for the unread messages periodically, not ideal but easy to implement for now
+Kill two follower processes (close their terminals or Ctrl+C), send a message
+With only one replica left, we can still reach a quorum, so the system remains available
 
-JSON can't handle bytes, need to update some of the methods to handle JSON as well
+Restart the two followers
+Each restarted follower replays its log and catches up. No central state or shared database is needed
+
+This should be a distributed chat system that’s fully persistent, 2-fault tolerant, and has no shared storage. 
+It can be deployed across multiple machines or run locally for testing. 
+Logs ensure message durability, and quorum-based replication ensures consistency.
