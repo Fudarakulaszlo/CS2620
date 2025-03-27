@@ -57,7 +57,7 @@ RES_ERR_UNIMPLEMENTED = "ERR_UNIMPLEMENTED" # Feature not implemented
 
 # Packet Structure (Fixed-Size Header + Payload)
 HEADER_SIZE = 2  # Fixed header (magic bytes)
-CMD_SIZE = 8     # Command length (padded)
+CMD_SIZE = 20     # Command length (padded)
 PAYLOAD_SIZE = 4 # 4-byte integer indicating payload length
 BUFFER_SIZE = 1024
 
