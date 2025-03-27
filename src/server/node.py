@@ -221,7 +221,6 @@ def handle_join(conn, data, log_path):
 # --- End Join Handling ---
 
 def client_handler(conn, client_address, users, log_path):
-    print(f"[Client Handler] Connection from {client_address} started.", flush=True)
     # Set a timeout so that if no new data arrives, we don't break the loop.
     conn.settimeout(10)
     try:
@@ -232,14 +231,10 @@ def client_handler(conn, client_address, users, log_path):
                 # No data received in 10 seconds, continue waiting
                 continue
             if not data:
-                print(f"[Client Handler] No data received from {client_address}; connection appears closed.", flush=True)
                 break
-            print(f"[Client Handler] Received data: {data}", flush=True)
             try:
                 cmd, payload, status = parse_packet(data)
-                print(f"[Client Handler] Parsed command: {cmd}, payload: {payload}", flush=True)
             except Exception as e:
-                print(f"[Client Handler] Error parsing packet: {e}", flush=True)
                 continue
 
             if cmd == REQ_JOIN:

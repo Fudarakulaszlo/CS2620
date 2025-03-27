@@ -175,7 +175,6 @@ class LoginFrame(tk.Frame):
     def register(self):
         username = self.entry_username.get().strip()
         password = self.entry_password.get().strip()
-        print("[GUI] Register button clicked. Username:", username, flush=True)
 
         if not validate_length(username, LEN_UNAME, "Username"):
             self.label_message.config(text="Invalid username length")
@@ -186,20 +185,16 @@ class LoginFrame(tk.Frame):
 
         # Send the CHECK request
         user_exists_response = request_check_user_exists(self.master.client_socket, username)
-        print("[GUI] Received user_exists_response:", user_exists_response, flush=True)
 
         if is_ok(user_exists_response[0]):
             self.label_message.config(text="User already exists. Please login.", fg="red")
             return
 
         # If user doesn't exist, proceed with registration.
-        print("[GUI] Proceeding with registration for", username, flush=True)
         register_response = request_register(self.master.client_socket, username, password)
-        print("[GUI] Received register_response:", register_response, flush=True)
         
         if is_ok(register_response[0]):
             save_response = request_save_users(self.master.client_socket, username)
-            print("[GUI] Received save_response:", save_response, flush=True)
             if is_ok(save_response[0]):
                 self.label_message.config(text="Account created. Please login.", fg="green")
             else:

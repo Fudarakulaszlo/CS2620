@@ -31,3 +31,9 @@ Logs ensure message durability, and quorum-based replication ensures consistency
 
 EXTRA
 Join dynamically
+
+
+TODO
+Make everyone start as a follower so that they elect a leader dynamically
+Make each replica keep its own copy of messages and sync between
+Implement failover in client (gui.py)
