@@ -1,13 +1,16 @@
+#!/usr/bin/env python3
 """
 * File: gui.py
 * Author: Áron Vékássy, Karen Li
 *
 * This file contains a Tkinter-based GUI client for the chat application.
+* It dynamically reads the server endpoints from server/membership.json.
 """
 
 import socket
 import sys
 import os
+import json
 import tkinter as tk
 from tkinter import messagebox, ttk
 
@@ -15,6 +18,23 @@ from tkinter import messagebox, ttk
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.protocol import *  # Provides validate_length, LEN_UNAME, LEN_PASSWORD, LEN_MESSAGE, etc.
 from client.requests import *  # Provides request_login, request_register, request_save_users, etc.
+
+def load_server_list():
+    """
+    Loads the membership list from src/server/membership.json and returns a list
+    of tuples: [(host, port), ...].
+    """
+    # __file__ is src/gui/gui.py; go up one level then into server/
+    membership_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "server", "membership.json"))
+    try:
+        with open(membership_path, "r") as f:
+            membership = json.load(f)
+        server_list = [(node["host"], node["port"]) for node in membership]
+        print(f"Loaded server list from {membership_path}: {server_list}", flush=True)
+        return server_list
+    except Exception as e:
+        print("Error loading server list from", membership_path, ":", e, flush=True)
+        return []
 
 # Helper function to check OK responses in both bytes and JSON string formats.
 def is_ok(response_value):
@@ -25,23 +45,27 @@ def is_ok(response_value):
         return response_value.strip() == ok_str
     return False
 
-# Server Configuration
-HOST = "localhost"
-PORT = 9999  # Must match the server port
-
 def connect_to_server():
-    """Connect to the chat server and return the client socket."""
-    try:
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect((HOST, PORT))
-        print(f"✅ Connected to server at {HOST}:{PORT}")
-        return client_socket
-    except ConnectionRefusedError:
-        messagebox.showerror("Connection Failed", f"❌ Connection failed! Is the server running on {HOST}:{PORT}?")
-        sys.exit(1)
-    except Exception as e:
-        messagebox.showerror("Error", f"❌ Error: {e}")
-        sys.exit(1)
+    """
+    Attempt to connect to one of the servers in the membership file.
+    Returns a connected socket, or exits if none are available.
+    """
+    server_list = load_server_list()
+    for host, port in server_list:
+        try:
+            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # Set a timeout to avoid hanging on unreachable endpoints.
+            client_socket.settimeout(5)
+            client_socket.connect((host, port))
+            print(f"✅ Connected to server at {host}:{port}", flush=True)
+            # Optionally, reset the timeout after connection.
+            client_socket.settimeout(None)
+            return client_socket
+        except Exception as e:
+            print(f"Connection to server at {host}:{port} failed: {e}", flush=True)
+            continue
+    messagebox.showerror("Connection Failed", f"❌ Connection failed! None of the servers {server_list} are available.")
+    sys.exit(1)
 
 class ChatClientApp(tk.Tk):
     """Main application window for the chat client."""
@@ -151,6 +175,7 @@ class LoginFrame(tk.Frame):
     def register(self):
         username = self.entry_username.get().strip()
         password = self.entry_password.get().strip()
+        print("[GUI] Register button clicked. Username:", username, flush=True)
 
         if not validate_length(username, LEN_UNAME, "Username"):
             self.label_message.config(text="Invalid username length")
@@ -159,20 +184,29 @@ class LoginFrame(tk.Frame):
             self.label_message.config(text="Invalid password length")
             return
 
+        # Send the CHECK request
         user_exists_response = request_check_user_exists(self.master.client_socket, username)
+        print("[GUI] Received user_exists_response:", user_exists_response, flush=True)
+
         if is_ok(user_exists_response[0]):
             self.label_message.config(text="User already exists. Please login.", fg="red")
             return
 
+        # If user doesn't exist, proceed with registration.
+        print("[GUI] Proceeding with registration for", username, flush=True)
         register_response = request_register(self.master.client_socket, username, password)
+        print("[GUI] Received register_response:", register_response, flush=True)
+        
         if is_ok(register_response[0]):
             save_response = request_save_users(self.master.client_socket, username)
+            print("[GUI] Received save_response:", save_response, flush=True)
             if is_ok(save_response[0]):
                 self.label_message.config(text="Account created. Please login.", fg="green")
             else:
                 self.label_message.config(text="Error saving user data.", fg="red")
         else:
             self.label_message.config(text="Registration failed. Username may be taken.", fg="red")
+
 
 class LandingFrame(tk.Frame):
     """Landing page showing the list of accounts you have chatted with,

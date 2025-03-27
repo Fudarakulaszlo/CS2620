@@ -6,11 +6,10 @@
 - No shared storage
 - Bonus: Log inspection & system recovery
 
-For 2-fault tolerance, we should have 3 followers on different ports.
+For 2-fault tolerance, we should have 3 servers on different ports.
 Each follower is an independent replica with its own persistent storage and message logs. There is no shared store.
 
-The leader coordinates replication. Every write is sent to all replicas, and only committed after a quorum confirms it.
-Messages are persisted locally and replicated to at least two followers before being confirmed.
+The leader coordinates replication. Leader election is done based on highest id
 
 Stop the leader (Ctrl+C), restart server
     - Leader is restarted, but followers are still running.
@@ -32,7 +31,3 @@ Logs ensure message durability, and quorum-based replication ensures consistency
 
 EXTRA
 Join dynamically
-python3 server/follower.py 9994
-python3 server/join.py
-We then send a message
-It shows up in the log!

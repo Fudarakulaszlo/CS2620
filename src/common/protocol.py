@@ -12,7 +12,7 @@ import hashlib
 USE_JSON = False
 
 # TIME flag
-CHE_TIME = False
+CHE_TIME = True
 
 # Constants
 LEN_UNAME = 32                               # Max username length
@@ -33,7 +33,15 @@ REQ_UPA = b"UPDATE__"   # Update user profile
 REQ_ALL = b"ALLUSERS"   # Get all registered users
 REQ_DME = b"DELEMESG"   # Delete a message
 REQ_DEL = b"DELEUSER"   # Delete a user
-REQ_JOI = b"JOINFOLL"   # Join a follower
+REQ_JOI = b"JOINFOLL"   # (Old join command, not used in new design)
+
+# New Request/Response Codes for election, heartbeat, and joining
+REQ_ELEC    = b"ELECT___"   # Election initiation
+RES_OK_ELEC = b"ELEC_OK_"   # Response to election initiation
+REQ_COORD   = b"COORD___"   # New leader announcement
+REQ_HRTBT   = b"HEARTBT_"   # Heartbeat message
+REQ_JOIN    = b"JOINNODE"   # New node join request
+RES_JOIN    = b"JOIN_OK_"   # Response to join request with assigned id and membership
 
 # Response Codes (Sent by Server)
 RES_OK = b"___OK___"                        # Success
@@ -60,7 +68,8 @@ def hash_password_sha256(password):
 # Compute XOR checksum
 def compute_checksum(payload):
     checksum = 0
-    for byte in payload: checksum ^= byte
+    for byte in payload:
+        checksum ^= byte
     return checksum.to_bytes(1, 'big')
 
 # Create a structured request packet
@@ -85,41 +94,15 @@ def create_packet(command, payload):
 
 # Parse a received packet
 def parse_packet(packet):
-    # if len(packet) < HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + 1:
-    #     print(f"❌ Packet too short: Expected at least {HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + 1} bytes, got {len(packet)}")
-    #     return None, None, "Invalid packet length"
-
-    # header = packet[:HEADER_SIZE]
-    # if header != b'\xAA\xBB':
-    #     print("❌ Invalid header detected.")
-    #     return None, None, "Invalid header"
-
-    # Extract and clean up command
-    command = packet[HEADER_SIZE:HEADER_SIZE + CMD_SIZE].rstrip(b'\x00')  # Remove padding
-
+    # Extract command and payload from packet.
+    command = packet[0 + HEADER_SIZE:HEADER_SIZE + CMD_SIZE].rstrip(b'\x00')
     try:
         payload_len = struct.unpack("!I", packet[HEADER_SIZE + CMD_SIZE:HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE])[0]
     except struct.error:
-        print("❌ Failed to unpack payload length.")
         return None, None, "Invalid payload length"
-
-    # print(f"🛠  Parsed Command: {command}, Payload Length: {payload_len}")  # Debugging print
-
-    # if len(packet) < HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len + 1:
-    #     print(f"❌ Truncated packet: Expected {HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len + 1}, got {len(packet)}")
-    #     return None, None, "Truncated packet"
-
     payload = packet[HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE:HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len]
-    # checksum = packet[HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len]
-
-    # # Verify checksum
-    # if checksum != compute_checksum(payload)[0]:
-    #     print("❌ Checksum mismatch.")
-    #     return None, None, "Checksum mismatch"
-
     return command, payload.decode(), RES_OK
 
-# Validate the length of a string
 def validate_length(input_str, max_length, field_name):
     if not input_str:
         print(f"❌ {field_name} cannot be empty.")
@@ -129,6 +112,5 @@ def validate_length(input_str, max_length, field_name):
         return False
     return True
 
-# Verify a hashed password
 def verify_password(stored_password, entered_password): 
     return stored_password == hash_password_sha256(entered_password)
