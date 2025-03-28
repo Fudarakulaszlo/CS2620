@@ -101,4 +101,4 @@ python3 src/GUI/gui.py
 
 ### Logging & Debugging
 - Each node appends significant events to `common/logs/node_{ID}_events.log` (for major events) and a replication log to `common/logs/node_{ID}.log` for data changes.
--The GUI prints logs to the console (connection attempts, failover messages, etc.).
+- The GUI prints logs to the console (connection attempts, failover messages, etc.).
