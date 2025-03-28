@@ -3,25 +3,22 @@
 ## Project Directory Structure
 
 ```
-src/
-  ├── client/
-  │       ├── client.py
-  │       └── request.py
-  ├── server/
-  │       ├── node.py
-  │       ├── log_util.py
-  │       ├── responses.py
-  │       └── membership.json
-  └── common/
-          ├── protocols.py
-          ├── json_protocol.py
-          ├── logs/
-          │     ├── nodeX.log
-          │     └── ...
-          ├── messages/
-          │     ├── <USERNAME>.dat
-          │     └── ...
-          └── user.dat
+├─ src/
+│  ├─ client/
+│  │  ├─ requests.py        # Client-side request functions (send_request, etc.)
+│  │  └─ ...
+│  ├─ common/
+│  │  ├─ protocol.py        # Defines wire protocol constants & packet structure
+│  │  └─ ...
+│  ├─ GUI/
+│  │  ├─ gui.py             # Tkinter-based GUI client
+│  │  └─ ...
+│  └─ server/
+│     ├─ node.py            # Main server node code (leader election, replication, membership)
+│     ├─ join.py            # Script to request a new node join the cluster
+│     ├─ log_util.py        # Tools for logging and replaying logs
+│     └─ ...
+         
 ```
 
 ## System Architecture
@@ -29,10 +26,11 @@ src/
 [Client] <---> [Server 1]
          <---> [Server 2]
          <---> [Server 3]
+         <---> ...
 ```
 
-## Configuration File (server/config.json)
-Edit this file to change replica addresses or add a real LAN IP.
+## Configuration File (server/membership.json)
+Edit this file to change the initial replica addresses or add a real LAN IP.
 ```
 [
   {"id": 1, "host": "127.0.0.1", "port": 9001},
@@ -41,40 +39,65 @@ Edit this file to change replica addresses or add a real LAN IP.
 ]
 ```
 
-## Testing the Code
-To test the code, be sure to be in the right directory for ALL terminals:
-```
-cd CS2620/src
-```
-### Step 1: Start Servers
 
-Open 3 terminals:
+### How to run the servers
+
+1. Set up a `membership.json` with your initial cluster membership (or just an empty list if you plan to add all nodes dynamically). Make sure that 127.0.0.1 port 9001 is one of them (see GUI part why). Something like:
+
 ```
-python3 server/node.py --id 3 --host 127.0.0.1 --port 9003 --membership server/membership.json
-```
-```
-python3 server/node.py --id 2 --host 127.0.0.1 --port 9002 --membership server/membership.json
-```
-```
-python3 server/node.py --id 1 --host 127.0.0.1 --port 9001 --membership server/membership.json
+[
+  {"id": 1, "host": "127.0.0.1", "port": 9001},
+  {"id": 2, "host": "127.0.0.1", "port": 9002},
+  {"id": 3, "host": "127.0.0.1", "port": 9003}
+]
 ```
 
-### Step 2: Start the Client
-In another new terminal
-```
-python3 client/client.py
-```
+2. Start each node with a unique `--id`, `--host`, `--port`, and the same `--membership membership.json`:
 
-### Check Local Logs
 ```
-tail -f common/logs/leader.log
+python3 src/server/node.py --id 1 --host 127.0.0.1 --port 9001 --membership membership.json
+python3 src/server/node.py --id 2 --host 127.0.0.1 --port 9002 --membership membership.json
+python3 src/server/node.py --id 3 --host 127.0.0.1 --port 9003 --membership membership.json
 ```
+- Each node creates a local `common/membership_node_{ID}.json`.
+- They all begin as followers, wait for heartbeats or time out, then elect a leader automatically.
 
-### Add extra servers
+
+### Adding a New Node Dynamically
+
+1. Use `join.py` to tell the current leader about a new node:
+
 ```
-python3 join.py --leader_host 127.0.0.1 --leader_port 9003 --new_host 127.0.0.1 --new_port 9004
+python3 src/server/join.py \
+    --leader_host 127.0.0.1 --leader_port 9001 \
+    --new_host 127.0.0.1   --new_port 9004
 ```
-Then start the new node with
+- The leader updates its membership list.
+- The leader replicates the new membership to other existing nodes, so they also update their local membership files.
+
+2. Start the new node:
+
 ```
-python3 node.py --id 4 --host 127.0.0.1 --port 9004 --membership membership.json
+python3 src/server/node.py --id 4 --host 127.0.0.1 --port 9004 --membership membership.json
 ```
+- This node recognizes it’s a follower and does a post-startup pull from the leader to get the latest membership and data.
+
+### Running the GUI Client
+
+1. Launch the GUI:
+```
+python3 src/GUI/gui.py
+```
+- The GUI automatically tries to connect to the cluster.
+
+- The client has a list of possibly running servers that it tries to join. Be default this is set to port 9001. While running, it fetches the latest server lists, so it can fail over to any of the running servers.
+
+### Failover and Replication
+- If you send a command that changes data (e.g., register user or send a message) to the leader, the leader replicates it to followers, appends to a local log, and returns success.
+- Followers also periodically pull data from the leader if they missed updates.
+- If the leader fails, a heartbeat timeout triggers a new election.
+- A node with no heartbeats from the leader calls initiate_election(). Once it becomes leader, it starts sending heartbeats itself.
+
+### Logging & Debugging
+- Each node appends significant events to 'common/logs/node_{ID}_events.log' (for major events) and a replication log to 'common/logs/node_{ID}.log' for data changes.
+-The GUI prints logs to the console (connection attempts, failover messages, etc.).

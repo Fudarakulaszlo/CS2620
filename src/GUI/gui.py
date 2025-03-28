@@ -3,8 +3,10 @@
 * File: gui.py
 * Author: Áron Vékássy, Karen Li
 *
-* This file contains a Tkinter-based GUI client for the chat application.
-* It dynamically reads the server endpoints from server/membership.json.
+* This version no longer uses a single membership.json for failover.
+* Instead, it uses a short bootstrap list of servers, then fetches
+* the current membership from the cluster at runtime (REQ_MEM),
+* storing it in self.cached_membership.
 """
 
 import socket
@@ -14,30 +16,23 @@ import json
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-# Add the parent directory to the module search path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from common.protocol import *  # Provides validate_length, LEN_UNAME, LEN_PASSWORD, LEN_MESSAGE, etc.
-from client.requests import *  # Provides request_login, request_register, request_save_users, etc.
 
-def load_server_list():
-    """
-    Loads the membership list from src/server/membership.json and returns a list
-    of tuples: [(host, port), ...].
-    """
-    # __file__ is src/gui/gui.py; go up one level then into server/
-    membership_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "server", "membership.json"))
-    try:
-        with open(membership_path, "r") as f:
-            membership = json.load(f)
-        server_list = [(node["host"], node["port"]) for node in membership]
-        print(f"Loaded server list from {membership_path}: {server_list}", flush=True)
-        return server_list
-    except Exception as e:
-        print("Error loading server list from", membership_path, ":", e, flush=True)
-        return []
+from common.protocol import (
+    validate_length, LEN_UNAME, LEN_PASSWORD, LEN_MESSAGE
+    # Also define REQ_MEM = b"REQ_MEM__" and RES_MEM = b"MEM_OK___" in protocol.py
+)
+from client.requests import (
+    request_check_user_exists, request_login, request_register,
+    request_set_profile, request_update_profile, request_get_profile,
+    request_delete_messages, request_list_users, request_save_users,
+    request_delete_profile, request_logout,
+    # New:
+    request_get_membership
+)
 
-# Helper function to check OK responses in both bytes and JSON string formats.
 def is_ok(response_value):
+    """Helper to check if the server response is ___OK___."""
     ok_str = "___OK___"
     if isinstance(response_value, bytes):
         return response_value.strip(b'\x00') == ok_str.encode('utf-8')
@@ -45,69 +40,156 @@ def is_ok(response_value):
         return response_value.strip() == ok_str
     return False
 
-def connect_to_server():
-    """
-    Attempt to connect to one of the servers in the membership file.
-    Returns a connected socket, or exits if none are available.
-    """
-    server_list = load_server_list()
-    for host, port in server_list:
-        try:
-            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            # Set a timeout to avoid hanging on unreachable endpoints.
-            client_socket.settimeout(5)
-            client_socket.connect((host, port))
-            print(f"✅ Connected to server at {host}:{port}", flush=True)
-            # Optionally, reset the timeout after connection.
-            client_socket.settimeout(None)
-            return client_socket
-        except Exception as e:
-            print(f"Connection to server at {host}:{port} failed: {e}", flush=True)
-            continue
-    messagebox.showerror("Connection Failed", f"❌ Connection failed! None of the servers {server_list} are available.")
-    sys.exit(1)
-
 class ChatClientApp(tk.Tk):
-    """Main application window for the chat client."""
+    """
+    Main application window for the chat client, implementing:
+    - a bootstrap list for initial connection
+    - a dynamic membership fetch (REQ_MEM)
+    - a local 'cached_membership' for failover
+    """
     def __init__(self):
         super().__init__()
         self.title("Chat Application")
         self.geometry("600x500")
 
-        # Connect to server (socket shared among frames)
-        self.client_socket = connect_to_server()
-        self.username = None  # Set after login
+        # 1) Minimal bootstrap list (host, port).
+        #    Must be at least one known active node:
+        self.bootstrap_list = [
+            ("127.0.0.1", 9001)
+        ]
+
+        # 2) We'll store all known cluster nodes here, once we connect & query membership
+        self.cached_membership = []
+
+        self.client_socket = None
+        self.current_hostport = None
+
+        # Attempt initial connection to the cluster
+        self.connect_to_cluster()
+
+        # After connecting, set up frames
+        self.username = None
         self.password = None
 
-        # Create frames for login, landing, and chat
         self.login_frame = LoginFrame(self)
         self.landing_frame = LandingFrame(self, self.open_chat)
         self.chat_frame = ChatFrame(self)
         self.login_frame.pack(fill="both", expand=True)
 
-        # Bind the close event to gracefully disconnect
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
+    def connect_to_cluster(self):
+        """
+        Attempt to connect to at least one server from self.bootstrap_list.
+        If successful, fetch membership from that server (REQ_MEM).
+        """
+        for (host, port) in self.bootstrap_list:
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(5)
+                s.connect((host, port))
+                s.settimeout(None)
+                print(f"✅ Connected to bootstrap server {host}:{port}")
+                self.client_socket = s
+                self.current_hostport = (host, port)
+
+                # 1) Ask for membership from this node
+                cmd, membership_json, status = request_get_membership(s)
+                if cmd and cmd.startswith(b"MEM_OK___"):
+                    membership_list = json.loads(membership_json)
+                    # Convert membership_list to a list of (host, port) tuples
+                    self.cached_membership = [(m["host"], m["port"]) for m in membership_list]
+                    print(f"Fetched membership from cluster: {self.cached_membership}", flush=True)
+                else:
+                    # If the server didn't respond with membership, we only know about this node
+                    self.cached_membership = [self.current_hostport]
+
+                return
+            except Exception as e:
+                print(f"Connection to server at {host}:{port} failed: {e}", flush=True)
+        # If we exit the loop, no server is reachable
+        messagebox.showerror("Connection Failed", "❌ All bootstrap servers are unreachable.")
+        sys.exit(1)
+
+    def failover(self):
+        """
+        Close the current socket, remove it from self.cached_membership,
+        and try the next node in self.cached_membership until success.
+        On success, optionally fetch membership again from the new node.
+        """
+        if self.client_socket:
+            try:
+                self.client_socket.close()
+            except:
+                pass
+            self.client_socket = None
+
+        # Remove the just-failed node from the list, so we don't re-try it
+        if self.current_hostport in self.cached_membership:
+            self.cached_membership.remove(self.current_hostport)
+
+        # Now try each known node
+        while self.cached_membership:
+            (host, port) = self.cached_membership.pop(0)
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(5)
+                s.connect((host, port))
+                s.settimeout(None)
+                print(f"✅ Failover succeeded: now connected to {host}:{port}", flush=True)
+                self.client_socket = s
+                self.current_hostport = (host, port)
+
+                # Optionally, fetch membership from the new node again
+                cmd, membership_json, status = request_get_membership(s)
+                if cmd and cmd.startswith(b"MEM_OK___"):
+                    dynamic_list = json.loads(membership_json)
+                    # Turn them into (host,port) and add to our membership
+                    new_endpoints = [(n["host"], n["port"]) for n in dynamic_list]
+                    # We can merge them, ignoring duplicates
+                    all_set = set(self.cached_membership)
+                    for ep in new_endpoints:
+                        if ep != self.current_hostport and ep not in all_set:
+                            self.cached_membership.append(ep)
+                            all_set.add(ep)
+                return
+            except Exception as e:
+                print(f"❌ Failover attempt to {host}:{port} failed: {e}", flush=True)
+
+        # If we exhaust membership
+        messagebox.showerror("Failover", "No more known servers available. Exiting.")
+        sys.exit(1)
+
+    def send_request_with_failover(self, request_func, *args):
+        """
+        Wrap a request function so if the server fails, we do self.failover() once
+        and re-try the request on the new node.
+        """
+        import socket
+        try:
+            return request_func(self.client_socket, *args)
+        except (socket.error, ConnectionResetError, ConnectionAbortedError) as e:
+            print(f"❗ Connection error: {e}. Attempting failover...", flush=True)
+            self.failover()
+            # After failover, re-run the request
+            return request_func(self.client_socket, *args)
+
     def show_landing_frame(self):
-        """Switch from the login frame to the landing page."""
         self.login_frame.pack_forget()
         self.chat_frame.pack_forget()
         self.landing_frame.pack(fill="both", expand=True)
         self.landing_frame.poll_messages()
 
     def show_chat_frame(self):
-        """Switch from the landing page to the chat view."""
         self.landing_frame.pack_forget()
         self.chat_frame.pack(fill="both", expand=True)
         self.chat_frame.poll_messages()
 
     def open_chat(self, recipient):
-        """Callback from LandingFrame to open a conversation with the given recipient."""
         self.show_chat_frame()
         self.chat_frame.open_chat(recipient)
 
     def show_login_frame(self):
-        """Switch back to the login frame (e.g., after logout)."""
         self.landing_frame.pack_forget()
         self.chat_frame.pack_forget()
         self.login_frame.pack(fill="both", expand=True)
@@ -124,6 +206,7 @@ class ChatClientApp(tk.Tk):
         except Exception:
             pass
         self.destroy()
+
 
 class LoginFrame(tk.Frame):
     """Frame for user login and registration."""
@@ -158,12 +241,16 @@ class LoginFrame(tk.Frame):
             self.label_message.config(text="Invalid password length")
             return
 
-        user_exists_response = request_check_user_exists(self.master.client_socket, username)
+        user_exists_response = self.master.send_request_with_failover(
+            request_check_user_exists, username
+        )
         if not is_ok(user_exists_response[0]):
             self.label_message.config(text="User does not exist. Please register.")
             return
 
-        login_response = request_login(self.master.client_socket, username, password)
+        login_response = self.master.send_request_with_failover(
+            request_login, username, password
+        )
         if is_ok(login_response[0]):
             self.master.username = username
             self.master.password = password
@@ -183,18 +270,20 @@ class LoginFrame(tk.Frame):
             self.label_message.config(text="Invalid password length")
             return
 
-        # Send the CHECK request
-        user_exists_response = request_check_user_exists(self.master.client_socket, username)
-
+        user_exists_response = self.master.send_request_with_failover(
+            request_check_user_exists, username
+        )
         if is_ok(user_exists_response[0]):
             self.label_message.config(text="User already exists. Please login.", fg="red")
             return
 
-        # If user doesn't exist, proceed with registration.
-        register_response = request_register(self.master.client_socket, username, password)
-        
+        register_response = self.master.send_request_with_failover(
+            request_register, username, password
+        )
         if is_ok(register_response[0]):
-            save_response = request_save_users(self.master.client_socket, username)
+            save_response = self.master.send_request_with_failover(
+                request_save_users, username
+            )
             if is_ok(save_response[0]):
                 self.label_message.config(text="Account created. Please login.", fg="green")
             else:
@@ -204,11 +293,7 @@ class LoginFrame(tk.Frame):
 
 
 class LandingFrame(tk.Frame):
-    """Landing page showing the list of accounts you have chatted with,
-    along with the number of unread messages.
-    Double-click an entry to open that conversation.
-    Also includes Logout and Delete Account buttons, and a section to start a new chat.
-    """
+    """Landing page showing the list of conversations, plus new chat, logout, etc."""
     def __init__(self, master, open_chat_callback):
         super().__init__(master)
         self.master = master
@@ -221,7 +306,6 @@ class LandingFrame(tk.Frame):
         self.refresh_button = tk.Button(self, text="Refresh", command=self.refresh)
         self.refresh_button.pack(pady=5)
 
-        # New section to start a new chat.
         new_chat_frame = tk.Frame(self)
         new_chat_frame.pack(pady=10)
         tk.Label(new_chat_frame, text="Start New Chat:").grid(row=0, column=0, padx=5, pady=5)
@@ -231,7 +315,6 @@ class LandingFrame(tk.Frame):
         self.start_chat_button = tk.Button(new_chat_frame, text="Start Chat", command=self.start_new_chat)
         self.start_chat_button.grid(row=0, column=2, padx=5, pady=5)
 
-        # Logout and Delete Account buttons
         self.button_frame = tk.Frame(self)
         self.button_frame.pack(pady=5)
         self.logout_button = tk.Button(self.button_frame, text="Logout", width=12, command=self.logout)
@@ -239,25 +322,12 @@ class LandingFrame(tk.Frame):
         self.delete_account_button = tk.Button(self.button_frame, text="Delete Account", width=12, command=self.delete_account)
         self.delete_account_button.pack(side="left", padx=5)
 
-    def update_new_recipient_menu(self):
-        """Update the new chat recipient drop-down with available users (excluding self)."""
-        get_users_response = request_list_users(self.master.client_socket, self.master.username)
-        users_str = get_users_response[1]
-        users = users_str.strip().split('\n') if users_str.strip() != "" else []
-        users = [u for u in users if u != self.master.username]
-        if not users:
-            users = [""]
-        menu = self.new_recipient_menu["menu"]
-        menu.delete(0, "end")
-        for user in users:
-            menu.add_command(label=user, command=lambda value=user: self.new_recipient_var.set(value))
-        if self.new_recipient_var.get() not in users:
-            self.new_recipient_var.set(users[0])
-
     def refresh(self):
-        get_profile_response = request_get_profile(self.master.client_socket, self.master.username)
+        get_profile_response = self.master.send_request_with_failover(
+            request_get_profile, self.master.username
+        )
         messages_str = get_profile_response[1]
-        conversation_dict = {}  # {sender: unread_count}
+        conversation_dict = {}
         if messages_str.strip() != "":
             lines = messages_str.strip().split('\n')
             for line in lines:
@@ -291,6 +361,23 @@ class LandingFrame(tk.Frame):
                 recipient = text
             self.open_chat_callback(recipient)
 
+    def update_new_recipient_menu(self):
+        get_users_response = self.master.send_request_with_failover(
+            request_list_users, self.master.username
+        )
+        users_str = get_users_response[1]
+        users = users_str.strip().split('\n') if users_str.strip() != "" else []
+        users = [u for u in users if u != self.master.username]
+        if not users:
+            users = [""]
+        menu = self.new_recipient_menu["menu"]
+        menu.delete(0, "end")
+        for user in users:
+            menu.add_command(label=user, command=lambda value=user: self.new_recipient_var.set(value))
+        if self.new_recipient_var.get() not in users:
+            if users: 
+                self.new_recipient_var.set(users[0])
+
     def start_new_chat(self):
         recipient = self.new_recipient_var.get().strip()
         if not recipient:
@@ -300,38 +387,37 @@ class LandingFrame(tk.Frame):
 
     def logout(self):
         try:
-            request_logout(self.master.client_socket, self.master.username)
-        except Exception:
+            self.master.send_request_with_failover(request_logout, self.master.username)
+        except:
             pass
         messagebox.showinfo("Logged Out", "You have been logged out.")
         try:
             self.master.client_socket.close()
-        except Exception:
+        except:
             pass
-        self.master.client_socket = connect_to_server()
+        self.master.connect_to_cluster()
         self.master.username = None
         self.master.show_login_frame()
 
     def delete_account(self):
-        if messagebox.askyesno("Confirm", "Are you sure you want to delete your account? This cannot be undone."):
-            request_delete_profile(self.master.client_socket, self.master.username)
+        if messagebox.askyesno("Confirm", "Are you sure you want to delete your account?"):
+            self.master.send_request_with_failover(request_delete_profile, self.master.username)
             try:
-                request_logout(self.master.client_socket, self.master.username)
-            except Exception:
+                self.master.send_request_with_failover(request_logout, self.master.username)
+            except:
                 pass
             messagebox.showinfo("Account Deleted", "Your account has been deleted.")
             try:
                 self.master.client_socket.close()
-            except Exception:
+            except:
                 pass
-            self.master.client_socket = connect_to_server()
+            self.master.connect_to_cluster()
             self.master.username = None
             self.master.show_login_frame()
 
+
 class ChatFrame(tk.Frame):
-    """Frame for the main chat interface with each conversation in its own tab.
-    A persistent send message area with a recipient drop-down is integrated at the bottom.
-    """
+    """Frame for the main chat interface with each conversation in its own tab."""
     def __init__(self, master):
         super().__init__(master)
         self.master = master
@@ -339,9 +425,6 @@ class ChatFrame(tk.Frame):
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill="both", expand=True, padx=10, pady=5)
 
-        # Dictionary mapping normalized conversation partner (lowercase) to a dict:
-        # "frame": tab frame, "listbox": Listbox widget, "message_indices": dict mapping listbox index -> global message index,
-        # "display": the original account name.
         self.conversations = {}
 
         self.send_frame = tk.Frame(self)
@@ -368,9 +451,11 @@ class ChatFrame(tk.Frame):
         self.button_delete_account.pack(side="left", padx=5)
 
     def update_recipient_menu(self):
-        get_users_response = request_list_users(self.master.client_socket, self.master.username)
+        get_users_response = self.master.send_request_with_failover(
+            request_list_users, self.master.username
+        )
         users_str = get_users_response[1]
-        users = users_str.strip().split('\n') if users_str.strip() != "" else []
+        users = users_str.strip().split('\n') if users_str.strip() else []
         users = [u for u in users if u != self.master.username]
         if not users:
             users = [""]
@@ -379,13 +464,16 @@ class ChatFrame(tk.Frame):
         for user in users:
             menu.add_command(label=user, command=lambda value=user: self.recipient_var.set(value))
         if self.recipient_var.get() not in users:
-            self.recipient_var.set(users[0])
+            if users:
+                self.recipient_var.set(users[0])
 
     def refresh_messages(self):
-        get_profile_response = request_get_profile(self.master.client_socket, self.master.username)
+        get_profile_response = self.master.send_request_with_failover(
+            request_get_profile, self.master.username
+        )
         messages_str = get_profile_response[1]
-        new_data = {}  # {sender: list of (global_index, status, content)}
-        if messages_str.strip() != "":
+        new_data = {}
+        if messages_str.strip():
             lines = messages_str.strip().split('\n')
             for i, line in enumerate(lines):
                 parts = line.split(',')
@@ -411,7 +499,7 @@ class ChatFrame(tk.Frame):
             self.notebook.tab(conv["frame"], text=new_title)
             listbox.yview_moveto(yview[0])
 
-        request_update_profile(self.master.client_socket, self.master.username)
+        self.master.send_request_with_failover(request_update_profile, self.master.username)
         self.update_recipient_menu()
 
     def poll_messages(self):
@@ -431,7 +519,9 @@ class ChatFrame(tk.Frame):
         if not validate_length(message_text, LEN_MESSAGE, "Message"):
             messagebox.showerror("Error", "Invalid message length.")
             return
-        request_set_profile(self.master.client_socket, self.master.username, message_text, recipient)
+        self.master.send_request_with_failover(
+            request_set_profile, self.master.username, message_text, recipient
+        )
         self.message_entry.delete("1.0", tk.END)
         norm_recipient = recipient.lower()
         if norm_recipient not in self.conversations:
@@ -460,7 +550,9 @@ class ChatFrame(tk.Frame):
         if global_index is None:
             messagebox.showerror("Error", "Unable to determine the selected message index.")
             return
-        request_delete_messages(self.master.client_socket, self.master.username, global_index)
+        self.master.send_request_with_failover(
+            request_delete_messages, self.master.username, global_index
+        )
         messagebox.showinfo("Deleted", "Message deleted!")
         self.refresh_messages()
 
@@ -491,28 +583,29 @@ class ChatFrame(tk.Frame):
         self.master.landing_frame.pack(fill="both", expand=True)
 
     def delete_account(self):
-        if messagebox.askyesno("Confirm", "Are you sure you want to delete your account? This cannot be undone."):
-            request_delete_profile(self.master.client_socket, self.master.username)
-            request_logout(self.master.client_socket, self.master.username)
+        if messagebox.askyesno("Confirm", "Are you sure you want to delete your account?"):
+            self.master.send_request_with_failover(request_delete_profile, self.master.username)
+            self.master.send_request_with_failover(request_logout, self.master.username)
             messagebox.showinfo("Account Deleted", "Your account has been deleted.")
             try:
                 self.master.client_socket.close()
-            except Exception:
+            except:
                 pass
-            self.master.client_socket = connect_to_server()
+            self.master.connect_to_cluster()
             self.master.username = None
             self.master.show_login_frame()
 
     def logout(self):
-        request_logout(self.master.client_socket, self.master.username)
+        self.master.send_request_with_failover(request_logout, self.master.username)
         messagebox.showinfo("Logged Out", "You have been logged out.")
         try:
             self.master.client_socket.close()
-        except Exception:
+        except:
             pass
-        self.master.client_socket = connect_to_server()
+        self.master.connect_to_cluster()
         self.master.username = None
         self.master.show_login_frame()
+
 
 if __name__ == "__main__":
     app = ChatClientApp()

@@ -12,7 +12,7 @@ import hashlib
 USE_JSON = False
 
 # TIME flag
-CHE_TIME = True
+CHE_TIME = False
 
 # Constants
 LEN_UNAME = 32                               # Max username length
@@ -34,6 +34,7 @@ REQ_ALL = b"ALLUSERS"   # Get all registered users
 REQ_DME = b"DELEMESG"   # Delete a message
 REQ_DEL = b"DELEUSER"   # Delete a user
 REQ_JOI = b"JOINFOLL"   # (Old join command, not used in new design)
+REQ_MEM = b"REQ_MEM__" # Request membership list
 
 # New Request/Response Codes for election, heartbeat, and joining
 REQ_ELEC    = b"ELECT___"   # Election initiation
@@ -41,7 +42,11 @@ RES_OK_ELEC = b"ELEC_OK_"   # Response to election initiation
 REQ_COORD   = b"COORD___"   # New leader announcement
 REQ_HRTBT   = b"HEARTBT_"   # Heartbeat message
 REQ_JOIN    = b"JOINNODE"   # New node join request
-RES_JOIN    = b"JOIN_OK_"   # Response to join request with assigned id and membership
+
+
+# >>> Added for pulling messages from the leader <<<
+REQ_PULL    = b"REQ_PULL_"  # Follower requests full message store from leader
+RES_PULL    = b"PULL_OK__"  # Leader responds with a serialized data set
 
 # Response Codes (Sent by Server)
 RES_OK = b"___OK___"                        # Success
@@ -53,12 +58,14 @@ RES_ERR_NO_USER = "ERR_NO_USER"             # Requested user not found
 RES_ERR_INV_CMD = "ERR_INVALID_COMMAND"     # Invalid command
 RES_ERR_XMIT = "ERR_XMIT"                   # Transmission error 
 RES_ERR_SERVER = "ERR_SERVER"               # Internal server error
+RES_JOIN    = b"JOIN_OK_"   # Response to join request with assigned id and membership
 RES_ERR_UNIMPLEMENTED = "ERR_UNIMPLEMENTED" # Feature not implemented
+RES_MEM = b"MEM_OK___"   # Response to membership request
 
-# Packet Structure (Fixed-Size Header + Payload)
-HEADER_SIZE = 2  # Fixed header (magic bytes)
-CMD_SIZE = 20     # Command length (padded)
-PAYLOAD_SIZE = 4 # 4-byte integer indicating payload length
+# Packet Structure
+HEADER_SIZE = 2   # Magic bytes
+CMD_SIZE = 20     # Space for command (padded)
+PAYLOAD_SIZE = 4  # 4-byte integer for payload length
 BUFFER_SIZE = 1024
 
 # Compute SHA-256 hash
@@ -72,35 +79,33 @@ def compute_checksum(payload):
         checksum ^= byte
     return checksum.to_bytes(1, 'big')
 
-# Create a structured request packet
+# Create a structured request/response packet
 def create_packet(command, payload): 
-    # Format: [Header (2B)] + [Command (8B)] + [Payload Length (4B)] + [Payload (Var)] + [Checksum (1B)]
     if isinstance(command, str):
         command = command.encode()
-
     payload_bytes = payload.encode()
     payload_len = len(payload_bytes)
-
-    # Pack as big-endian 4-byte integer
     payload_length_bytes = struct.pack("!I", payload_len)
+    # Packet format:
+    #  [Header(2B)] + [Command(20B)] + [PayloadLen(4B)] + [Payload] + [Checksum(1B)]
     packet = (
-        b'\xAA\xBB' +                       # Magic header
-        command.ljust(CMD_SIZE, b'\x00') +  # Command (8 bytes, padded)
-        payload_length_bytes +              # Payload length (4 bytes, big-endian)
-        payload_bytes +                     # Payload (variable length)
-        compute_checksum(payload_bytes)     # Checksum (1 byte)
+        b'\xAA\xBB' +
+        command.ljust(CMD_SIZE, b'\x00') +
+        payload_length_bytes +
+        payload_bytes +
+        compute_checksum(payload_bytes)
     )
     return packet
 
-# Parse a received packet
 def parse_packet(packet):
-    # Extract command and payload from packet.
-    command = packet[0 + HEADER_SIZE:HEADER_SIZE + CMD_SIZE].rstrip(b'\x00')
+    command = packet[HEADER_SIZE:HEADER_SIZE + CMD_SIZE].rstrip(b'\x00')
     try:
-        payload_len = struct.unpack("!I", packet[HEADER_SIZE + CMD_SIZE:HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE])[0]
+        payload_len = struct.unpack("!I", packet[HEADER_SIZE + CMD_SIZE : HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE])[0]
     except struct.error:
         return None, None, "Invalid payload length"
-    payload = packet[HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE:HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE + payload_len]
+    payload_start = HEADER_SIZE + CMD_SIZE + PAYLOAD_SIZE
+    payload_end = payload_start + payload_len
+    payload = packet[payload_start:payload_end]
     return command, payload.decode(), RES_OK
 
 def validate_length(input_str, max_length, field_name):

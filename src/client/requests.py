@@ -89,3 +89,11 @@ def request_delete_profile(client_socket, username):
 def request_logout(client_socket, username): 
     response_cmd, response_payload, status = send_request(client_socket, REQ_BYE, username)
     return response_cmd, response_payload, status
+
+def request_get_membership(client_socket):
+    """
+    Ask the connected server for its entire membership list.
+    The server replies with RES_MEM plus a JSON array of nodes.
+    """
+    response_cmd, response_payload, status = send_request(client_socket, REQ_MEM, "")
+    return response_cmd, response_payload, status

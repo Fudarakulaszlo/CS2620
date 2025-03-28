@@ -1,5 +1,5 @@
 """
-* response.py
+* responses.py
 * Author: Áron Vékássy, Karen Li
 
 This file handles client requests and generates structured responses 
@@ -8,21 +8,39 @@ using the custom wire protocol.
 
 import os
 import sys
-import json 
+import json
 
-# Add the parent directory to the module search path
+# Add parent directory to module search path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.protocol import *
 from common.json_protocol import *
 
-USERS_FILE = "common/users.dat"  # File to store user credentials
-MESSAGES_DIR = os.path.join("common", "messages")
-os.makedirs(MESSAGES_DIR, exist_ok=True)
+# Node-specific values, set at runtime
+NODE_ID = None
+MESSAGES_DIR = None
+USERS_FILE = None
 
-# Send a structured response to the client
+def set_node_id(node_id):
+    """
+    Called once from node.py to set per-node directory and user file paths.
+    Each node stores messages and user data separately.
+    """
+    global NODE_ID, MESSAGES_DIR, USERS_FILE
+    NODE_ID = node_id
+
+    # Messages go in e.g. `common/messages/node_2/...`
+    MESSAGES_DIR = os.path.join("common", "messages", f"node_{NODE_ID}")
+    os.makedirs(MESSAGES_DIR, exist_ok=True)
+
+    # Each node’s users file can be e.g. `common/users/node_2_users.dat`
+    os.makedirs("common/users", exist_ok=True)
+    USERS_FILE = os.path.join("common", "users", f"node_{NODE_ID}_users.dat")
+
 def send_response(client_socket, status, payload=""):
+    """Send a structured response to the client."""
     if USE_JSON:
-        if isinstance(status, bytes): status = status.decode() 
+        if isinstance(status, bytes):
+            status = status.decode() 
         response_str = create_json(status, payload)
         client_socket.sendall(response_str.encode())
     else:
@@ -40,14 +58,17 @@ def handle_check_user_exists(client_socket, users, username):
 
 # Handle `REQ_REG` – Register a new user
 def handle_reg(client_socket, users, username, password): 
-    if username in users: # Username already exists
+    if username in users:
         send_response(client_socket, RES_ERR_USER_EXISTS, "❌ Username already exists.")
         return False
-    # Append new user to the list
+
     users[username] = hash_password_sha256(password)
+
+    # Create user’s message file
     user_message_file = os.path.join(MESSAGES_DIR, f"{username}.dat")
-    # Create a new message file for the user
-    with open(user_message_file, "w") as f: f.write("")
+    with open(user_message_file, "w") as f:
+        f.write("")
+
     send_response(client_socket, RES_OK, "✅ Registration successful.")
     return True
 
@@ -59,7 +80,7 @@ def handle_log(client_socket, users, username, password):
     send_response(client_socket, RES_ERR_LOGIN, "❌ Invalid credentials.")
     return False
 
-# Handle `REQ_SET` – Save user data
+# Handle `REQ_SET` – Save (send) a message from `username` to `target_user`
 def handle_set(client_socket, users, username, message, target_user):
     if username not in users or target_user not in users:
         if client_socket:
@@ -72,9 +93,9 @@ def handle_set(client_socket, users, username, message, target_user):
     entry_sender = f"SENT, {message}, {target_user}"
     entry_receiver = f"UNREAD, {message}, {username}"
 
-    # Avoid duplicates — read current messages
     sender_lines = []
     receiver_lines = []
+
     if os.path.exists(user_message_file):
         with open(user_message_file, "r") as f:
             sender_lines = f.read().splitlines()
@@ -82,7 +103,6 @@ def handle_set(client_socket, users, username, message, target_user):
         with open(target_message_file, "r") as f:
             receiver_lines = f.read().splitlines()
 
-    # Only append if not already in file
     if entry_sender not in sender_lines:
         with open(user_message_file, "a") as f:
             f.write(entry_sender + "\n")
@@ -93,61 +113,59 @@ def handle_set(client_socket, users, username, message, target_user):
     if client_socket:
         send_response(client_socket, RES_OK, "✅ Message updated successfully.")
 
-# Handle `REQ_UPA` – Update user data
+# Handle `REQ_UPA` – Mark all unread messages as read
 def handle_update(client_socket, users, username):
     if username not in users:
         send_response(client_socket, RES_ERR_LOGIN, "❌ Authentication failed.")
         return
-    # Get the message file for the user
     user_message_file = os.path.join(MESSAGES_DIR, f"{username}.dat")
-    # Load all messages
-    with open(user_message_file, "r") as f:
-        lines = f.readlines()
-    # Replace all unread messages with read
-    with open(user_message_file, "w") as f:
-        for line in lines:
-            f.write(line.replace("UNREAD", "READ"))
+    if os.path.exists(user_message_file):
+        with open(user_message_file, "r") as f:
+            lines = f.readlines()
+        with open(user_message_file, "w") as f:
+            for line in lines:
+                f.write(line.replace("UNREAD", "READ"))
     send_response(client_socket, RES_OK, "✅ User data updated successfully.")
-    
-# Handle `REQ_GET` – Retrieve user  data
+
+# Handle `REQ_GET` – Retrieve messages for a user
 def handle_get(client_socket, users, username): 
     if username not in users:
         send_response(client_socket, RES_ERR_LOGIN, "❌ Authentication failed.")
         return
 
     user_message_file = os.path.join(MESSAGES_DIR, f"{username}.dat")
-
-    try:
-        with open(user_message_file, "r") as f:
-            lines = f.readlines()
-        # Deduplicate while preserving order
-        seen = set()
-        unique_lines = []
-        for line in lines:
-            clean = line.strip()
-            if clean not in seen:
-                seen.add(clean)
-                unique_lines.append(clean)
-        response_data = "\n".join(unique_lines)
-        send_response(client_socket, RES_OK, response_data)
-    except FileNotFoundError:
+    if not os.path.exists(user_message_file):
         send_response(client_socket, RES_ERR_NO_DATA, "❌ No message data found.")
+        return
 
-# Handle `REQ_DME` – Delete a message
+    with open(user_message_file, "r") as f:
+        lines = f.readlines()
+
+    # Deduplicate while preserving order
+    seen = set()
+    unique_lines = []
+    for line in lines:
+        clean = line.strip()
+        if clean not in seen:
+            seen.add(clean)
+            unique_lines.append(clean)
+
+    response_data = "\n".join(unique_lines)
+    send_response(client_socket, RES_OK, response_data)
+
+# Handle `REQ_DME` – Delete a message by index
 def handle_delemsg(client_socket, users, username, message_id):
     if username not in users:
         send_response(client_socket, RES_ERR_LOGIN, "❌ Authentication failed.")
         return
-    # Get the message file for the users
     user_message_file = os.path.join(MESSAGES_DIR, f"{username}.dat")
     try:
-        # Load all messages
         with open(user_message_file, "r") as f:
             lines = f.readlines()
-        # Write all messages except the one to be deleted
         with open(user_message_file, "w") as f:
             for i, line in enumerate(lines):
-                if i != int(message_id): f.write(line)     
+                if i != int(message_id):
+                    f.write(line)
         send_response(client_socket, RES_OK, "✅ Message deleted successfully.")
     except (FileNotFoundError, ValueError, IndexError):
         send_response(client_socket, RES_ERR_NO_DATA, "❌ Message not found.")
@@ -157,27 +175,30 @@ def handle_all(client_socket, users, username):
     if username not in users:
         send_response(client_socket, RES_ERR_LOGIN, "❌ Authentication failed.")
         return
-    # Get all usernames in a string
     user_list = "\n".join(users.keys())
     send_response(client_socket, RES_OK, user_list)
 
-# Handle `REQ_SAV` – Save server data
-def handle_sav(client_socket, users): 
-    # Save all users to the file
-    with open(USERS_FILE, "w") as f: json.dump(users, f)
+# Handle `REQ_SAV` – Save user data to node’s own users file
+def handle_sav(client_socket, users):
+    if USERS_FILE is None:
+        send_response(client_socket, RES_ERR_SERVER, "No user file set for this node.")
+        return
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f)
     send_response(client_socket, RES_OK, "✅ User data saved successfully.")
 
+# Handle `REQ_DEL` – Delete a user
 def handle_delete(client_socket, users, username):
     if username not in users:
         send_response(client_socket, RES_ERR_LOGIN, "❌ Authentication failed.")
         return
-    # Remove user from the list
     del users[username]
-    # Save all users to the file
-    with open(USERS_FILE, "w") as f: json.dump(users, f)
-    # Delete the user's message file
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f)
+    # Delete that user’s message file
     user_message_file = os.path.join(MESSAGES_DIR, f"{username}.dat")
-    os.remove(user_message_file)
+    if os.path.exists(user_message_file):
+        os.remove(user_message_file)
     send_response(client_socket, RES_OK, "✅ User deleted successfully.")
 
 # Handle `REQ_BYE` – Logout request

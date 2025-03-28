@@ -9,31 +9,11 @@
 For 2-fault tolerance, we should have 3 servers on different ports.
 Each follower is an independent replica with its own persistent storage and message logs. There is no shared store.
 
-The leader coordinates replication. Leader election is done based on highest id
+The leader coordinates replication. Leader election is done based on highest id. Each server keeps own copies of everything
 
-Stop the leader (Ctrl+C), restart server
-    - Leader is restarted, but followers are still running.
+There was a problem during which the servers thought that the messages coming from the leader are from the follower
+This kept it bouncing back and forth
 
-Reconnect with the client as bob
-Check the inbox — the message from alice should still be there
+Had the servers force an election when they joined, this was a problem when the new node with a highest id joined
+Now the new servers wait for a heartbeat
 
-All user and message data persisted through a crash using local log replay
-
-Kill two follower processes (close their terminals or Ctrl+C), send a message
-With only one replica left, we can still reach a quorum, so the system remains available
-
-Restart the two followers
-Each restarted follower replays its log and catches up. No central state or shared database is needed
-
-This should be a distributed chat system that’s fully persistent, 2-fault tolerant, and has no shared storage. 
-It can be deployed across multiple machines or run locally for testing. 
-Logs ensure message durability, and quorum-based replication ensures consistency.
-
-EXTRA
-Join dynamically
-
-
-TODO
-Make everyone start as a follower so that they elect a leader dynamically
-Make each replica keep its own copy of messages and sync between
-Implement failover in client (gui.py)
