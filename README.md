@@ -28,8 +28,9 @@
          <---> [Server 3]
          <---> ...
 ```
+## How to use
 
-## Configuration File (server/membership.json)
+### Configuration File (server/membership.json)
 Edit this file to change the initial replica addresses or add a real LAN IP.
 ```
 [
