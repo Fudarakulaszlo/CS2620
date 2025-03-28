@@ -97,8 +97,8 @@ python3 src/GUI/gui.py
 - If you send a command that changes data (e.g., register user or send a message) to the leader, the leader replicates it to followers, appends to a local log, and returns success.
 - Followers also periodically pull data from the leader if they missed updates.
 - If the leader fails, a heartbeat timeout triggers a new election.
-- A node with no heartbeats from the leader calls initiate_election(). Once it becomes leader, it starts sending heartbeats itself.
+- A node with no heartbeats from the leader calls `initiate_election()`. Once it becomes leader, it starts sending heartbeats itself.
 
 ### Logging & Debugging
-- Each node appends significant events to 'common/logs/node_{ID}_events.log' (for major events) and a replication log to 'common/logs/node_{ID}.log' for data changes.
+- Each node appends significant events to `common/logs/node_{ID}_events.log` (for major events) and a replication log to `common/logs/node_{ID}.log` for data changes.
 -The GUI prints logs to the console (connection attempts, failover messages, etc.).
