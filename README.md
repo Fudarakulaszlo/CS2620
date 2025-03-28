@@ -52,13 +52,14 @@ Edit this file to change the initial replica addresses or add a real LAN IP.
   {"id": 3, "host": "127.0.0.1", "port": 9003}
 ]
 ```
+2. Go to the `src` folder. You should run all the code from there.
 
-2. Start each node with a unique `--id`, `--host`, `--port`, and the same `--membership membership.json`:
+3. Start each node with a unique `--id`, `--host`, `--port`, and the same `--membership membership.json`:
 
 ```
-python3 src/server/node.py --id 1 --host 127.0.0.1 --port 9001 --membership membership.json
-python3 src/server/node.py --id 2 --host 127.0.0.1 --port 9002 --membership membership.json
-python3 src/server/node.py --id 3 --host 127.0.0.1 --port 9003 --membership membership.json
+python3 server/node.py --id 1 --host 127.0.0.1 --port 9001 --membership membership.json
+python3 server/node.py --id 2 --host 127.0.0.1 --port 9002 --membership membership.json
+python3 server/node.py --id 3 --host 127.0.0.1 --port 9003 --membership membership.json
 ```
 - Each node creates a local `common/membership_node_{ID}.json`.
 - They all begin as followers, wait for heartbeats or time out, then elect a leader automatically.
@@ -69,7 +70,7 @@ python3 src/server/node.py --id 3 --host 127.0.0.1 --port 9003 --membership memb
 1. Use `join.py` to tell the current leader about a new node:
 
 ```
-python3 src/server/join.py \
+python3 server/join.py \
     --leader_host 127.0.0.1 --leader_port 9001 \
     --new_host 127.0.0.1   --new_port 9004
 ```
@@ -79,7 +80,7 @@ python3 src/server/join.py \
 2. Start the new node:
 
 ```
-python3 src/server/node.py --id 4 --host 127.0.0.1 --port 9004 --membership membership.json
+python3 server/node.py --id 4 --host 127.0.0.1 --port 9004 --membership membership.json
 ```
 - This node recognizes it’s a follower and does a post-startup pull from the leader to get the latest membership and data.
 
@@ -87,7 +88,7 @@ python3 src/server/node.py --id 4 --host 127.0.0.1 --port 9004 --membership memb
 
 1. Launch the GUI:
 ```
-python3 src/GUI/gui.py
+python3 GUI/gui.py
 ```
 - The GUI automatically tries to connect to the cluster.
 
